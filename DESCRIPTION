@@ -1,0 +1,36 @@
+Package: didimputation
+Type: Package
+Title: Difference-in-Differences estimator from Borusyak, Jaravel, and Spiess (2021)
+Version: 0.1.0
+Authors@R: 
+    c(person(given = "Kyle",
+             family = "Butts",
+             role = c("aut","cre"),
+             email = "kyle.butts@colorado.edu",
+             comment = c(ORCID = "0000-0002-9048-8059")))
+Description: This package creates the function `did_imputation` which allows you to estimate TWFE diff-in-diff/event-study models. This estimator follows the imputation approach proposed by Borusyak, Jaravel, and Spiess (2021).
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+LinkingTo: 
+    Rcpp,
+    RcppArmadillo
+Depends: 
+    R (>= 2.10),
+    fixest (>= 0.9.0)
+Imports: 
+    Matrix,
+    magrittr,
+    Rcpp,
+    broom,
+    dplyr,
+    glue,
+    methods,
+    rlang,
+    stringr
+Suggests: 
+    haven,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+License: MIT + file LICENSE
