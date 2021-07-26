@@ -76,15 +76,15 @@ Or you can use relative-treatment indicators to estimate an event study estimate
 #>    term  estimate std.error conf.low conf.high
 #>    <chr>    <dbl>     <dbl>    <dbl>     <dbl>
 #>  1 0         2.12    0.0737     1.97      2.26
-#>  2 1         1.86    0.0767     1.71      2.01
-#>  3 2         1.99    0.0714     1.85      2.13
-#>  4 3         2.00    0.0765     1.85      2.15
-#>  5 4         1.95    0.0754     1.80      2.10
-#>  6 5         2.04    0.0758     1.89      2.19
-#>  7 6         2.03    0.0722     1.89      2.17
-#>  8 7         2.03    0.0754     1.88      2.17
-#>  9 8         1.98    0.0749     1.83      2.12
-#> 10 9         2.12    0.0727     1.98      2.26
+#>  2 1         1.86    0.0841     1.69      2.02
+#>  3 2         1.99    0.0810     1.83      2.15
+#>  4 3         2.00    0.0855     1.84      2.17
+#>  5 4         1.95    0.0856     1.78      2.12
+#>  6 5         2.04    0.0835     1.87      2.20
+#>  7 6         2.03    0.0807     1.87      2.19
+#>  8 7         2.03    0.0865     1.86      2.19
+#>  9 8         1.98    0.0826     1.81      2.14
+#> 10 9         2.12    0.0842     1.96      2.29
 #> # … with 11 more rows
 }\if{html}{\out{</div>}}
 
@@ -97,7 +97,7 @@ did_imputation(data = castle, yname = "l_homicide", gname = "effyear",
 #> # A tibble: 1 × 5
 #>   term  estimate std.error conf.low conf.high
 #>   <chr>    <dbl>     <dbl>    <dbl>     <dbl>
-#> 1 treat   0.0798    0.0609  -0.0395     0.199
+#> 1 treat   0.0798    0.0531  -0.0243     0.184
 }\if{html}{\out{</div>}}
 }
 
