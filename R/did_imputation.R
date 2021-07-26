@@ -70,6 +70,8 @@ did_imputation = function(data, yname, gname, tname, idname, first_stage = NULL,
 
 	# Set-up Parameters ------------------------------------------------------------
 
+	data = as.data.frame(data)
+
 	# Extract vars from formula
 	if(is.null(first_stage)) {
 		first_stage = glue::glue("0 | {idname} + {tname}")

@@ -2,3 +2,4 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^R/dev-*\.R$
+^README\.Rmd$
