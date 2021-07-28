@@ -8,7 +8,7 @@ Authors@R:
              role = c("aut","cre"),
              email = "kyle.butts@colorado.edu",
              comment = c(ORCID = "0000-0002-9048-8059")))
-Description: This package creates the function `did_imputation` which allows you to estimate TWFE diff-in-diff/event-study models. This estimator follows the imputation approach proposed by Borusyak, Jaravel, and Spiess (2021).
+Description: Estimates TWFE diff-in-diff/event-study models using the imputation-based approach proposed by Borusyak, Jaravel, and Spiess (2021).
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
