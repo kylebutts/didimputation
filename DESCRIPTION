@@ -8,7 +8,7 @@ Authors@R:
              role = c("aut","cre"),
              email = "kyle.butts@colorado.edu",
              comment = c(ORCID = "0000-0002-9048-8059")))
-Description: Estimates TWFE diff-in-diff/event-study models using the imputation-based approach proposed by Borusyak, Jaravel, and Spiess (2021).
+Description: Estimates Two-way Fixed Effects difference-in-differences/event-study models using the imputation-based approach proposed by Borusyak, Jaravel, and Spiess (2021).
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
