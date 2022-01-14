@@ -12,7 +12,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // make_V_star
-arma::sp_mat make_V_star(arma::sp_mat Z, arma::sp_mat Z0, arma::sp_mat Z1, arma::sp_mat wtr);
+arma::mat make_V_star(arma::sp_mat Z, arma::sp_mat Z0, arma::sp_mat Z1, arma::sp_mat wtr);
 RcppExport SEXP _didimputation_make_V_star(SEXP ZSEXP, SEXP Z0SEXP, SEXP Z1SEXP, SEXP wtrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

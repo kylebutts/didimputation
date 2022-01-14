@@ -1,12 +1,22 @@
 #' Borusyak, Jaravel, and Spiess (2021) Estimator
 #'
+#' @description
 #' Treatment effect estimation and pre-trend testing in staggered adoption
-#' diff-in-diff designs with an imputation approach of Borusyak, Jaravel, and
-#' Spiess (2021)
+#'   diff-in-diff designs with an imputation approach of Borusyak, Jaravel, and
+#'   Spiess (2021)
+#'
+#' @details
+#' The imputation-based estimator is a method of calculating treatment effects
+#'   in a difference-in-differences framework. The method estimates a model for
+#'   Y(0) using untreated/not-yet-treated observations and predicts Y(0) for the
+#'   treated observations hat(Y_it(0)). The difference between treated and
+#'   predicted untreated outcomes Y_it(1) - hat(Y_it(0)) serves as an estimate
+#'   for the treatment effect for unit i in period t. These are then averaged to
+#'   form average treatment effects for groups of {it}.
 #'
 #' @import fixest
 #'
-#' @param data A data frame
+#' @param data A `data.frame`
 #' @param yname String. Variable name for outcome.
 #' @param idname String. Variable name for unique unit id
 #' @param gname String. Variable name for unit-specific date of treatment
@@ -16,8 +26,8 @@
 #'   Formula following \code{\link[fixest:feols]{fixest::feols}}.
 #'   Fixed effects specified after "`|`".
 #'   If not specified, then just unit and time fixed effects will be used.
-#' @param weights Estimation weights for observations. This is used in estimating
-#'   Y(0) and also augments treatment effect weights.
+#' @param weights String. Variable name for estimation weights of observations.
+#'   This is used in estimating Y(0) and also augments treatment effect weights.
 #' @param wtr Character vector of treatment weight names
 #'   (see horizon for standard static and event-study weights)
 #' @param horizon Integer vector of event_time or `TRUE`. This only applies if `wtr` is left
@@ -28,6 +38,11 @@
 #'   If `wtr` and `horizon` are null, then the static treatment effect is calculated.
 #' @param pretrends Integer vector or `TRUE`. Which pretrends to estimate.
 #'   If `TRUE`, all `pretrends` are used.
+#' @param cluster_var String. Varaible name for clustering groups. If not
+#'   supplied, then `idname` is used as default.
+#'
+#' @return A `data.frame` containing treatment effect term, estimate, standard
+#'   error and confidence interval. This is in `tidy` format.
 #'
 #' @export
 #'
@@ -40,6 +55,7 @@
 #' # Load Example Dataset
 #' data("df_hom", package="did2s")
 #' ```
+#' ### Static TWFE
 #'
 #' You can run a static TWFE fixed effect model for a simple treatment indicator
 #' ```{r, comment = "#>", collapse = TRUE}
@@ -47,13 +63,18 @@
 #'                tname = "year", idname = "unit")
 #' ```
 #'
+#' ### Event Study
+#'
 #' Or you can use relative-treatment indicators to estimate an event study estimate
 #' ```{r, comment = "#>", collapse = TRUE}
 #' did_imputation(data = df_hom, yname = "dep_var", gname = "g",
 #'                tname = "year", idname = "unit", horizon=TRUE)
 #' ```
 #'
-#' Here's an example using data from Castle (2013)
+#' ### Example from Cheng and Hoekstra (2013)
+#'
+#' Here's an example using data from Cheng and Hoekstra (2013)
+#'
 #' ```{r, comment = "#>", collapse = TRUE}
 #' # Castle Data
 #' castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
@@ -65,7 +86,7 @@
 #'
 did_imputation = function(data, yname, gname, tname, idname, first_stage = NULL,
 						  weights = NULL, wtr = NULL, horizon = NULL,
-						  pretrends = NULL){
+						  pretrends = NULL, cluster_var = NULL){
 
 
 	# Set-up Parameters ------------------------------------------------------------
@@ -81,6 +102,7 @@ did_imputation = function(data, yname, gname, tname, idname, first_stage = NULL,
 
 	# Treat
 	data$zz000treat = 1 * (data[[tname]] >= data[[gname]]) * (data[[gname]] > 0)
+	# if g is NA
 	data[is.na(data$zz000treat), "zz000treat"] = 0
 
 	# Create event time
@@ -178,20 +200,22 @@ did_imputation = function(data, yname, gname, tname, idname, first_stage = NULL,
 		Matrix::Matrix(as.matrix(data[data$zz000treat == 1, wtr]), sparse = TRUE)
 	)
 
+	# fix v_it^* = w for treated observations
+	v_star[data$zz000treat == 1, ] = as.matrix(data[data$zz000treat == 1, wtr])
+
 	se = c()
 	for(i in 1:length(wtr)) {
 
 		# Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
 		data$zz000v = v_star[, i]
 
-		# fix v_it^* = w for treated observations
-		data[data$zz000treat == 1, "zz000v"] = data[data$zz000treat == 1,][[wtr[i]]]
-
 		# Equation (10) of Borusyak et. al. 2021
 		# Calculate tau_it - \bar{\tau}_{et}
 
 		# \bar{\tau}_{et}
+		# split
 		split_et <- split(data, list(data[[gname]], data$zz000event_time), drop = T)
+		# apply
 		results <- lapply(split_et, function(x) {
 			temp = ifelse(
 				x$zz000treat == 1,
@@ -205,15 +229,18 @@ did_imputation = function(data, yname, gname, tname, idname, first_stage = NULL,
 
 			return(x)
 		})
+		# combine
 		data = do.call("rbind", results)
 
 		# Recenter tau by \bar{\tau}_{et}
 		data$zz000tau_centered = data$zz000adj - data$zz000tau_et
 
+		# If no cluster_var, then use idname
+		if(is.null(cluster_var)) cluster_var = idname
 
 		# Equation (8)
 		# Calculate variance of estimate
-		split_id <- split(data, data[[idname]], drop = T)
+		split_id <- split(data, data[[cluster_var]], drop = T)
 		results <- lapply(split_id, function(x) {
 			temp = sum(x$zz000v * x$zz000tau_centered)^2
 			return(temp)

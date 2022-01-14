@@ -18,7 +18,7 @@ did_imputation(
 )
 }
 \arguments{
-\item{data}{A data frame}
+\item{data}{A \code{data.frame}}
 
 \item{yname}{String. Variable name for outcome.}
 
@@ -34,8 +34,8 @@ Formula following \code{\link[fixest:feols]{fixest::feols}}.
 Fixed effects specified after "\code{|}".
 If not specified, then just unit and time fixed effects will be used.}
 
-\item{weights}{Estimation weights for observations. This is used in estimating
-Y(0) and also augments treatment effect weights.}
+\item{weights}{String. Variable name for estimation weights of observations.
+This is used in estimating Y(0) and also augments treatment effect weights.}
 
 \item{wtr}{Character vector of treatment weight names
 (see horizon for standard static and event-study weights)}
@@ -50,10 +50,23 @@ If \code{wtr} and \code{horizon} are null, then the static treatment effect is c
 \item{pretrends}{Integer vector or \code{TRUE}. Which pretrends to estimate.
 If \code{TRUE}, all \code{pretrends} are used.}
 }
+\value{
+A \code{data.frame} containing treatment effect term, estimate, standard
+error and confidence interval. This is in \code{tidy} format.
+}
 \description{
 Treatment effect estimation and pre-trend testing in staggered adoption
 diff-in-diff designs with an imputation approach of Borusyak, Jaravel, and
 Spiess (2021)
+}
+\details{
+The imputation-based estimator is a method of calculating treatment effects
+in a difference-in-differences framework. The method estimates a model for
+Y(0) using untreated/not-yet-treated observations and predicts Y(0) for the
+treated observations hat(Y_it(0)). The difference between treated and
+predicted untreated outcomes Y_it(1) - hat(Y_it(0)) serves as an estimate
+for the treatment effect for unit i in period t. These are then averaged to
+form average treatment effects for groups of {it}.
 }
 \section{Examples}{
 
@@ -61,6 +74,7 @@ Spiess (2021)
 Load example dataset which has two treatment groups and homogeneous treatment effects\if{html}{\out{<div class="r">}}\preformatted{# Load Example Dataset
 data("df_hom", package="did2s")
 }\if{html}{\out{</div>}}
+\subsection{Static TWFE}{
 
 You can run a static TWFE fixed effect model for a simple treatment indicator\if{html}{\out{<div class="r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
                tname = "year", idname = "unit")
@@ -69,6 +83,9 @@ You can run a static TWFE fixed effect model for a simple treatment indicator\if
 #>   <chr>    <dbl>     <dbl>    <dbl>     <dbl>
 #> 1 treat     2.02    0.0324     1.96      2.09
 }\if{html}{\out{</div>}}
+}
+
+\subsection{Event Study}{
 
 Or you can use relative-treatment indicators to estimate an event study estimate\if{html}{\out{<div class="r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
                tname = "year", idname = "unit", horizon=TRUE)
@@ -87,8 +104,11 @@ Or you can use relative-treatment indicators to estimate an event study estimate
 #> 10 9         2.12    0.0842     1.96      2.29
 #> # … with 11 more rows
 }\if{html}{\out{</div>}}
+}
 
-Here's an example using data from Castle (2013)\if{html}{\out{<div class="r">}}\preformatted{# Castle Data
+\subsection{Example from Cheng and Hoekstra (2013)}{
+
+Here's an example using data from Cheng and Hoekstra (2013)\if{html}{\out{<div class="r">}}\preformatted{# Castle Data
 castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 
 did_imputation(data = castle, yname = "l_homicide", gname = "effyear",
@@ -99,5 +119,6 @@ did_imputation(data = castle, yname = "l_homicide", gname = "effyear",
 #>   <chr>    <dbl>     <dbl>    <dbl>     <dbl>
 #> 1 treat   0.0798    0.0531  -0.0243     0.184
 }\if{html}{\out{</div>}}
+}
 }
 

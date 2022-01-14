@@ -12,7 +12,7 @@ citEntry(entry	= "Manual",
                )
          ),
 	 year = 2021,
-     url = "https://www.github.com/kylebutts/didimputation",
+     url = "https://github.com/kylebutts/didimputation",
 	 textVersion = paste0(
              "Butts, Kyle (2021).  didimputation: Difference-in-Differences estimator from Borusyak, Jaravel, and Spiess (2021)", vers, ".")
          )

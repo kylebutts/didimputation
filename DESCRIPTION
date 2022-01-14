@@ -1,6 +1,6 @@
 Package: didimputation
 Type: Package
-Title: Difference-in-Differences estimator from Borusyak, Jaravel, and Spiess (2021)
+Title: Imputation Estimator from Borusyak, Jaravel, and Spiess (2021)
 Version: 0.1.0
 Authors@R: 
     c(person(given = "Kyle",

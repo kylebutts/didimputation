@@ -3,11 +3,11 @@
 #
 # library(tidyverse)
 #
-data(df_hom, package="did2s")
-data = df_hom
-yname = "dep_var"; idname = "unit"; gname = "g"; tname = "year"
-first_stage = NULL; horizon=T; pretrends=NULL;
-wtr = NULL; weights = NULL;
+# data(df_hom, package="did2s")
+# data = df_hom
+# yname = "dep_var"; idname = "unit"; gname = "g"; tname = "year"
+# first_stage = NULL; horizon=T; pretrends=NULL;
+# wtr = NULL; weights = NULL;
 
 # # static
 # did_imputation(

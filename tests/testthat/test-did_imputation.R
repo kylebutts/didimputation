@@ -3,7 +3,7 @@
 ##
 ## Test did_imputation function
 
-data(df_hom, package="did2s")
+data(df_hom, package="didimputation")
 library(haven)
 castle = haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 
