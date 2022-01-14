@@ -14,7 +14,8 @@ did_imputation(
   weights = NULL,
   wtr = NULL,
   horizon = NULL,
-  pretrends = NULL
+  pretrends = NULL,
+  cluster_var = NULL
 )
 }
 \arguments{
@@ -49,6 +50,9 @@ If \code{wtr} and \code{horizon} are null, then the static treatment effect is c
 
 \item{pretrends}{Integer vector or \code{TRUE}. Which pretrends to estimate.
 If \code{TRUE}, all \code{pretrends} are used.}
+
+\item{cluster_var}{String. Varaible name for clustering groups. If not
+supplied, then \code{idname} is used as default.}
 }
 \value{
 A \code{data.frame} containing treatment effect term, estimate, standard
@@ -71,12 +75,12 @@ form average treatment effects for groups of {it}.
 \section{Examples}{
 
 
-Load example dataset which has two treatment groups and homogeneous treatment effects\if{html}{\out{<div class="r">}}\preformatted{# Load Example Dataset
+Load example dataset which has two treatment groups and homogeneous treatment effects\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Load Example Dataset
 data("df_hom", package="did2s")
 }\if{html}{\out{</div>}}
 \subsection{Static TWFE}{
 
-You can run a static TWFE fixed effect model for a simple treatment indicator\if{html}{\out{<div class="r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
+You can run a static TWFE fixed effect model for a simple treatment indicator\if{html}{\out{<div class="sourceCode r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
                tname = "year", idname = "unit")
 #> # A tibble: 1 × 5
 #>   term  estimate std.error conf.low conf.high
@@ -87,28 +91,28 @@ You can run a static TWFE fixed effect model for a simple treatment indicator\if
 
 \subsection{Event Study}{
 
-Or you can use relative-treatment indicators to estimate an event study estimate\if{html}{\out{<div class="r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
+Or you can use relative-treatment indicators to estimate an event study estimate\if{html}{\out{<div class="sourceCode r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
                tname = "year", idname = "unit", horizon=TRUE)
 #> # A tibble: 21 × 5
 #>    term  estimate std.error conf.low conf.high
 #>    <chr>    <dbl>     <dbl>    <dbl>     <dbl>
 #>  1 0         2.12    0.0737     1.97      2.26
-#>  2 1         1.86    0.0841     1.69      2.02
-#>  3 2         1.99    0.0810     1.83      2.15
-#>  4 3         2.00    0.0855     1.84      2.17
-#>  5 4         1.95    0.0856     1.78      2.12
-#>  6 5         2.04    0.0835     1.87      2.20
-#>  7 6         2.03    0.0807     1.87      2.19
-#>  8 7         2.03    0.0865     1.86      2.19
-#>  9 8         1.98    0.0826     1.81      2.14
-#> 10 9         2.12    0.0842     1.96      2.29
+#>  2 1         1.86    0.0729     1.71      2.00
+#>  3 2         1.99    0.0727     1.84      2.13
+#>  4 3         2.00    0.0763     1.86      2.15
+#>  5 4         1.95    0.0767     1.80      2.10
+#>  6 5         2.04    0.0741     1.89      2.18
+#>  7 6         2.03    0.0716     1.89      2.17
+#>  8 7         2.03    0.0743     1.88      2.17
+#>  9 8         1.98    0.0726     1.83      2.12
+#> 10 9         2.12    0.0758     1.97      2.27
 #> # … with 11 more rows
 }\if{html}{\out{</div>}}
 }
 
 \subsection{Example from Cheng and Hoekstra (2013)}{
 
-Here's an example using data from Cheng and Hoekstra (2013)\if{html}{\out{<div class="r">}}\preformatted{# Castle Data
+Here's an example using data from Cheng and Hoekstra (2013)\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Castle Data
 castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 
 did_imputation(data = castle, yname = "l_homicide", gname = "effyear",
