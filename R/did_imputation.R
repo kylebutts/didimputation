@@ -15,13 +15,15 @@
 #'   form average treatment effects for groups of {it}.
 #'
 #' @import fixest
+#' @import data.table
+#' @import tidyverse
 #'
 #' @param data A `data.frame`
-#' @param yname String. Variable name for outcome.
-#' @param idname String. Variable name for unique unit id
+#' @param yname String. Variable name for outcome. Use fixest c() syntax for multiple lhs.
+#' @param idname String. Variable name for unique unit id.
 #' @param gname String. Variable name for unit-specific date of treatment
-#'   (never-treated should be zero or `NA`)
-#' @param tname String. Variable name for calendar period
+#'   (never-treated should be zero or `NA`).
+#' @param tname String. Variable name for calendar period.
 #' @param first_stage Formula for Y(0).
 #'   Formula following \code{\link[fixest:feols]{fixest::feols}}.
 #'   Fixed effects specified after "`|`".
@@ -85,219 +87,214 @@
 #' ```
 #'
 did_imputation = function(data, yname, gname, tname, idname, first_stage = NULL,
-						  weights = NULL, wtr = NULL, horizon = NULL,
-						  pretrends = NULL, cluster_var = NULL){
+                          weights = NULL, wtr = NULL, horizon = NULL,
+                          pretrends = NULL, cluster_var = NULL){
 
 
-	# Set-up Parameters ------------------------------------------------------------
+    # Set-up Parameters ------------------------------------------------------------
 
-	data = as.data.frame(data)
+    data %>% setDT
 
-	# Extract vars from formula
-	if(is.null(first_stage)) {
-		first_stage = glue::glue("0 | {idname} + {tname}")
-	} else if(inherits(first_stage, "formula")) {
-		first_stage = as.character(first_stage)[[2]]
-	}
+    # Extract vars from formula
+    if (is.null(first_stage)) {
+        first_stage <- glue::glue("0 | {idname} + {tname}")
+    } else if(inherits(first_stage, "formula")) {
+        first_stage <- as.character(first_stage)[[2]]
+    }
 
-	# Treat
-	data$zz000treat = 1 * (data[[tname]] >= data[[gname]]) * (data[[gname]] > 0)
-	# if g is NA
-	data[is.na(data$zz000treat), "zz000treat"] = 0
+    # Treatment indicator
+    data[, zz000treat := 1 * (get(tname) >= get(gname)) * (get(gname) > 0)]
+    
+    # if g is NA
+    data[is.na(zz000treat), zz000treat := 0]
 
-	# Create event time
-	data$zz000event_time = ifelse(
-		is.na(data[[gname]]) | data[[gname]] == 0 | data[[gname]] == Inf,
-		-Inf,
-		as.numeric(data[[tname]] - data[[gname]])
-	)
+    # Create event time
+    data[, zz000event_time := if_else(is.na(get(gname)) | get(gname) == 0 | get(gname) == Inf,
+        -Inf,
+        as.numeric(get(tname) - get(gname)))]
 
-	# Get list of event_time
-	event_time = unique(data$zz000event_time)
-	event_time = event_time[is.finite(event_time)]
+    # Get list of event_time
+    event_time <- unique(data[, zz000event_time])
+    event_time <- event_time[is.finite(event_time)]
 
-	# horizon/allhorizon options
-	if(is.null(wtr)) {
+    # horizon/allhorizon options
+    if (is.null(wtr)) {
 
-		# event-study
-		if(!is.null(horizon)) {
-			# create event time weights
-			wtr = c()
+        # event-study
+        if (!is.null(horizon)) {
+            # create event time weights
 
-			# allhorizons
-			if(all(horizon == TRUE)) horizon = event_time
+            # allhorizons
+            if (all(horizon == TRUE)) horizon <- event_time
 
-			# Create wtr of horizons
-			for(e in event_time) {
-				if(e %in% horizon) {
-					if(e >= 0) {
-						var = paste0("zz000wtr", e)
+            # Create wtr of horizons
+            wtr <- paste0("zz000wtr", event_time[event_time >= 0])
+			walk2(event_time[event_time >= 0], wtr,
+				function(e, v) data[, (v) := if_else(is.na(zz000event_time), 0, 1 * (zz000event_time == e))])
 
-						wtr = c(wtr, var)
-
-						data[,var] = 1*(data$zz000event_time == e & !is.na(data$zz000event_time))
-					}
-				}
-			}
-			# static
-		} else {
-			wtr = "zz000wtrtreat"
-
-			data[, wtr] = 1*(data$zz000treat == 1)
-		}
-	}
-
-	# Weights specified or not
-	if(is.null(weights)) {
-		weights_vector = rep(1, nrow(data))
 	} else {
-		weights_vector = data[[weights]]
+            wtr <- "zz000wtrtreat"
+            data[, (wtr) := 1*(zz000treat==1)]
+        }
+    }
+
+    # Weights specified or not
+    if(is.null(weights)) {
+		data[, zz000weight := 1]
+    } else {
+		data[, zz000weight := get(weights)]
+    }
+
+	data[, (wtr) := map(.SD, ~ . * zz000weight), .SDcols = wtr]  # Multiply treatment weights * weights vector
+	data[is.na(zz000weight), (wtr) := 0]
+	data[, (wtr) := map(.SD, ~ . / sum(.)), .SDcols = wtr] # Normalize
+
+    # First Stage estimate ---------------------------------------------------------
+
+    # First stage among untreated
+    formula <- stats::as.formula(glue::glue("{yname} ~ {first_stage}"))
+
+    # Estimate Y(0) using untreated observations
+    first_stage_est <- fixest::feols(formula, se = "standard",
+                                    data[zz000treat == 0, ],
+                                    weights = ~ zz000weight,
+                                    warn = FALSE, notes = FALSE)
+
+    # Residualize outcome variable(s)
+	yvars <- sub("^c[(]", "", yname)
+	yvars <- sub("[)]$", "", yvars)
+	yvars <- str_split(yvars, "\\s*,\\s*")[[1]]
+
+	if (length(yvars) == 1) {
+		data[, zz000adj := get(yname) - stats::predict(first_stage_est, newdata = data)]
+	} else {
+		data[, (paste(zz000adj, yvars, sep = "_")) := imap(.SD, ~ . - stats::predict(first_stage_est[[.y]], newdata = data))]
 	}
+    
 
-	for(w in wtr) {
-		# Treatment weights * weights_vector
-		data[[w]] = data[[w]] * weights_vector
-		# Normalize weights
-		data[[w]] = data[[w]]/sum(data[[w]])
-	}
-
-	# First Stage estimate ---------------------------------------------------------
-
-	# First stage among untreated
-	formula = stats::as.formula(glue::glue("{yname} ~ {first_stage}"))
-
-	# Estimate Y(0) using untreated observations
-	first_stage_est = fixest::feols(formula, se = "standard",
-									data[data$zz000treat == 0,],
-									weights = weights_vector[data$zz000treat == 0],
-									warn=FALSE, notes=FALSE)
-
-	# Residualize outcome variable
-	data$zz000adj = data[[yname]] - stats::predict(first_stage_est, newdata = data)
-
-	# Point estimate for wtr
-	est = c()
-	for(w in wtr) {
-		# \sum w_{it} * \tau_{it}
-		est = c(est,
-				sum(
-					data[data$zz000treat == 1,][[w]] * data[data$zz000treat == 1,][["zz000adj"]]
-				))
-	}
+    # Point estimate for wtr
+    est = c()
+    for(w in wtr) {
+        # \sum w_{it} * \tau_{it}
+        est = c(est,
+                sum(
+                    data[data$zz000treat == 1,][[w]] * data[data$zz000treat == 1,][["zz000adj"]]
+                ))
+    }
 
 
-	# Standard Errors --------------------------------------------------------------
+    # Standard Errors --------------------------------------------------------------
 
-	# Create Zs
-	Z = sparse_model_matrix(data, first_stage_est)
+    # Create Zs
+    Z = sparse_model_matrix(data, first_stage_est)
 
-	# Equation (6) of Borusyak et. al. 2021
-	# - Z (Z_0' Z_0)^{-1} Z_1' wtr_1
-	v_star = make_V_star(
-		(Z * weights_vector),
-		(Z * weights_vector)[data$zz000treat == 0, ],
-		(Z * weights_vector)[data$zz000treat == 1, ],
-		Matrix::Matrix(as.matrix(data[data$zz000treat == 1, wtr]), sparse = TRUE)
-	)
+    # Equation (6) of Borusyak et. al. 2021
+    # - Z (Z_0' Z_0)^{-1} Z_1' wtr_1
+    v_star = make_V_star(
+        (Z * weights_vector),
+        (Z * weights_vector)[data$zz000treat == 0, ],
+        (Z * weights_vector)[data$zz000treat == 1, ],
+        Matrix::Matrix(as.matrix(data[data$zz000treat == 1, wtr]), sparse = TRUE)
+    )
 
-	# fix v_it^* = w for treated observations
-	v_star[data$zz000treat == 1, ] = as.matrix(data[data$zz000treat == 1, wtr])
+    # fix v_it^* = w for treated observations
+    v_star[data$zz000treat == 1, ] = as.matrix(data[data$zz000treat == 1, wtr])
 
-	se = c()
-	for(i in 1:length(wtr)) {
+    se = c()
+    for(i in 1:length(wtr)) {
 
-		# Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
-		data$zz000v = v_star[, i]
+        # Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
+        data$zz000v = v_star[, i]
 
-		# Equation (10) of Borusyak et. al. 2021
-		# Calculate tau_it - \bar{\tau}_{et}
+        # Equation (10) of Borusyak et. al. 2021
+        # Calculate tau_it - \bar{\tau}_{et}
 
-		# \bar{\tau}_{et}
-		# split
-		split_et <- split(data, list(data[[gname]], data$zz000event_time), drop = T)
-		# apply
-		results <- lapply(split_et, function(x) {
-			temp = ifelse(
-				x$zz000treat == 1,
-				sum(x$zz000v^2 * x$zz000adj)/sum(x$zz000v^2) * x$zz000treat,
-				0
-			)
+        # \bar{\tau}_{et}
+        # split
+        split_et <- split(data, list(data[[gname]], data$zz000event_time), drop = T)
+        # apply
+        results <- lapply(split_et, function(x) {
+            temp = ifelse(
+                x$zz000treat == 1,
+                sum(x$zz000v^2 * x$zz000adj)/sum(x$zz000v^2) * x$zz000treat,
+                0
+            )
 
-			temp = ifelse(is.nan(temp), 0, temp)
+            temp = ifelse(is.nan(temp), 0, temp)
 
-			x$zz000tau_et = temp
+            x$zz000tau_et = temp
 
-			return(x)
-		})
-		# combine
-		data = do.call("rbind", results)
+            return(x)
+        })
+        # combine
+        data = do.call("rbind", results)
 
-		# Recenter tau by \bar{\tau}_{et}
-		data$zz000tau_centered = data$zz000adj - data$zz000tau_et
+        # Recenter tau by \bar{\tau}_{et}
+        data$zz000tau_centered = data$zz000adj - data$zz000tau_et
 
-		# If no cluster_var, then use idname
-		if(is.null(cluster_var)) cluster_var = idname
+        # If no cluster_var, then use idname
+        if(is.null(cluster_var)) cluster_var = idname
 
-		# Equation (8)
-		# Calculate variance of estimate
-		split_id <- split(data, data[[cluster_var]], drop = T)
-		results <- lapply(split_id, function(x) {
-			temp = sum(x$zz000v * x$zz000tau_centered)^2
-			return(temp)
-		})
+        # Equation (8)
+        # Calculate variance of estimate
+        split_id <- split(data, data[[cluster_var]], drop = T)
+        results <- lapply(split_id, function(x) {
+            temp = sum(x$zz000v * x$zz000tau_centered)^2
+            return(temp)
+        })
 
-		variance = sum(unlist(results))
+        variance = sum(unlist(results))
 
-		se = c(se, sqrt(variance))
-	}
-
-
-	# Pre-event Estimates ----------------------------------------------------------
-
-	if(!is.null(pretrends)) {
-		if(all(pretrends == TRUE)) {
-			pre_formula <- stats::as.formula(glue::glue("{yname} ~ i(zz000event_time) + {first_stage}"))
-		} else {
-			if(all(pretrends %in% event_time)) {
-				pre_formula <- stats::as.formula(
-					glue::glue("{yname} ~ i(zz000event_time, keep = c({paste(pretrends, collapse = ', ')}))  + {first_stage}")
-				)
-			} else {
-				stop(glue::glue("Pretrends not found in event_time. Event_time has values {event_time}"))
-			}
-		}
-
-		pre_est <- fixest::feols(pre_formula, data[data$zz000treat == 0, ], weights = weights_vector[data$zz000treat == 0], warn=FALSE, notes=FALSE)
-	}
+        se = c(se, sqrt(variance))
+    }
 
 
-	# Create dataframe of results in tidy format -----------------------------------
+    # Pre-event Estimates ----------------------------------------------------------
 
-	# Fix term for horizon option
-	wtr = stringr::str_replace(wtr, "zz000wtr", "")
+    if(!is.null(pretrends)) {
+        if(all(pretrends == TRUE)) {
+            pre_formula <- stats::as.formula(glue::glue("{yname} ~ i(zz000event_time) + {first_stage}"))
+        } else {
+            if(all(pretrends %in% event_time)) {
+                pre_formula <- stats::as.formula(
+                    glue::glue("{yname} ~ i(zz000event_time, keep = c({paste(pretrends, collapse = ', ')}))  + {first_stage}")
+                )
+            } else {
+                stop(glue::glue("Pretrends not found in event_time. Event_time has values {event_time}"))
+            }
+        }
 
-	out <- dplyr::tibble(
-		term      = wtr,
-		estimate  = est,
-		std.error = se,
-		conf.low  = est - 1.96 * se,
-		conf.high = est + 1.96 * se
-	)
-	out$term = as.character(out$term)
+        pre_est <- fixest::feols(pre_formula, data[data$zz000treat == 0, ], weights = weights_vector[data$zz000treat == 0], warn=FALSE, notes=FALSE)
+    }
 
-	if(!is.null(pretrends)) {
-		pre_out <- broom::tidy(pre_est)
 
-		pre_out$term = stringr::str_remove(pre_out$term, "zz000event_time::")
-		pre_out$term = as.character(pre_out$term)
+    # Create dataframe of results in tidy format -----------------------------------
 
-		pre_out$conf.low = pre_out$estimate - 1.96 * pre_out$std.error
-		pre_out$conf.high = pre_out$estimate + 1.96 * pre_out$std.error
+    # Fix term for horizon option
+    wtr = stringr::str_replace(wtr, "zz000wtr", "")
 
-		pre_out = pre_out[,c("term", "estimate", "std.error", "conf.low", "conf.high")]
+    out <- dplyr::tibble(
+        term      = wtr,
+        estimate  = est,
+        std.error = se,
+        conf.low  = est - 1.96 * se,
+        conf.high = est + 1.96 * se
+    )
+    out$term = as.character(out$term)
 
-		out = dplyr::bind_rows(pre_out, out)
-	}
+    if(!is.null(pretrends)) {
+        pre_out <- broom::tidy(pre_est)
 
-	return(out)
+        pre_out$term = stringr::str_remove(pre_out$term, "zz000event_time::")
+        pre_out$term = as.character(pre_out$term)
+
+        pre_out$conf.low = pre_out$estimate - 1.96 * pre_out$std.error
+        pre_out$conf.high = pre_out$estimate + 1.96 * pre_out$std.error
+
+        pre_out = pre_out[,c("term", "estimate", "std.error", "conf.low", "conf.high")]
+
+        out = dplyr::bind_rows(pre_out, out)
+    }
+
+    return(out)
 }
