@@ -103,7 +103,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     formula <- stats::as.formula(glue::glue("{yname} ~ {first_stage}"))
 
     # dummy estimation to extract needed variables
-    fixest_env <- feols(formula, data, only.env = T, warn = F, notes = F)
+    fixest_env <- feols(formula, data, lean = T, only.env = T, warn = F, notes = F)
 
     # extract lhs vars (allows fixest style multiple lhs specification)
     yvars <- fixest_env$lhs_names
@@ -176,8 +176,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     first_stage_est <- fixest::feols(formula, se = "standard",
                                     data[zz000treat == 0, ],
                                     weights = ~ zz000weight,
-                                    warn = FALSE, notes = FALSE,
-                                    env = fixest_env)
+                                    warn = FALSE, notes = FALSE)
 
     # Residualize outcome variable(s)
 	if (length(yvars) == 1) {
