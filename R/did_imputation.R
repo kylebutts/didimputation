@@ -99,17 +99,29 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
         first_stage <- as.character(first_stage)[[2]]
     }
 
-    firststage_vars <- stringr::str_extract_all(first_stage, "\\w+") %>%
-        unlist %>%
-        setdiff("0")
-    
-    # extract lhs vars (allows fixest style multiple lhs specification)
-    yvars <- sub("^c[(]", "", yname)
-	yvars <- sub("[)]$", "", yvars)
-	yvars <- stringr::str_split(yvars, "\\s*,\\s*")[[1]]
+    # Formula for fitting the first stage
+    formula <- stats::as.formula(glue::glue("{yname} ~ {first_stage}"))
 
+    # dummy estimation to extract needed variables
+    fixest_env <- feols(formula, data, only.env = T, warn = F, notes = F)
+
+    # extract lhs vars (allows fixest style multiple lhs specification)
+    yvars <- fixest_env$lhs_names
+
+    # extract fe vars
+    fevars <- fixest_env$fixef_vars %>%
+        stringr::str_extract_all("\\w+") %>%
+        unlist
+    
+    # extract rhs vars
+    rhsvars <- fixest_env$linear.params %>%
+        stringr::str_split("(?<!:):(?!:)") %>%
+        unlist %>%
+        stringr::str_replace("::.*", "") %>%
+        unique
+    
     # make local copy of data, convert to data.table
-    needed_vars <- c(yvars, gname, tname, idname, wname, wtr, firststage_vars, cluster_var) %>% unique
+    needed_vars <- c(yvars, gname, tname, idname, wname, wtr, rhsvars, fevars, cluster_var) %>% unique
     data <- copy(data[, needed_vars, with = F]) %>% setDT
 
     # Treatment indicator
@@ -160,14 +172,12 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 
     # First Stage estimate ---------------------------------------------------------
 
-    # First stage among untreated
-    formula <- stats::as.formula(glue::glue("{yname} ~ {first_stage}"))
-
     # Estimate Y(0) using untreated observations
     first_stage_est <- fixest::feols(formula, se = "standard",
                                     data[zz000treat == 0, ],
                                     weights = ~ zz000weight,
-                                    warn = FALSE, notes = FALSE)
+                                    warn = FALSE, notes = FALSE,
+                                    env = fixest_env)
 
     # Residualize outcome variable(s)
 	if (length(yvars) == 1) {
