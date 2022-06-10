@@ -208,7 +208,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 
     ses <- yvars %>%
         purrr::set_names(yvars) %>%
-        purrr::map(function(y) se_inner(data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]], wtr, cluster_var)) %>%
+        purrr::map(function(y) se_inner(data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]], v_star, wtr, cluster_var)) %>%
         rbindlist(idcol = "lhs")
 
 
@@ -263,7 +263,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 }
 
 
-se_inner <- function(data, wtr, cluster){
+se_inner <- function(data, v_star, wtr, cluster){
     # Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
     vcols <- paste0("zz000v", seq_along(wtr))
     tcols <- paste0("zz000tau_et", seq_along(wtr))
