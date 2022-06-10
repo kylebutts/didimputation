@@ -80,9 +80,9 @@
 #' # Castle Data
 #' castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 #'
-#' did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
-#'               first_stage = ~ 0 | sid + year,
-#'               tname = "year", idname = "sid")
+did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
+              first_stage = ~ 0 | sid + year,
+              tname = "year", idname = "sid")
 #' ```
 #'
 did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL,
@@ -110,7 +110,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 
     # make local copy of data, convert to data.table
     needed_vars <- c(yvars, gname, tname, idname, wname, wtr, firststage_vars, cluster_var) %>% unique
-    data <- copy(data[, ..needed_vars]) %>% setDT
+    data <- copy(data[, needed_vars, with = F]) %>% setDT
 
     # Treatment indicator
     data[, zz000treat := 1 * (.SD[[tname]] >= .SD[[gname]]) * (.SD[[gname]] > 0)]
@@ -197,11 +197,11 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
         (Z * data[, zz000weight]),
         (Z * data[, zz000weight])[data$zz000treat == 0, ],
         (Z * data[, zz000weight])[data$zz000treat == 1, ],
-        Matrix::Matrix(as.matrix(data[zz000treat == 1, ..wtr]), sparse = TRUE)
+        Matrix::Matrix(as.matrix(data[zz000treat == 1, wtr, with = F]), sparse = TRUE)
     )
 
     # fix v_it^* = w for treated observations
-    v_star[data$zz000treat == 1, ] <- as.matrix(data[zz000treat == 1, ..wtr])
+    v_star[data$zz000treat == 1, ] <- as.matrix(data[zz000treat == 1, wtr, with = F])
 
     # If no cluster_var, then use idname
     if(is.null(cluster_var)) cluster_var <- idname
