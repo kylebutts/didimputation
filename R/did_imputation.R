@@ -174,7 +174,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 	if (length(yvars) == 1) {
 		data[, (paste("zz000adj", yvars, sep = "_")) := .SD[[yname]] - stats::predict(first_stage_est, newdata = data)]
 	} else {
-		data[, (paste("zz000adj", yvars, sep = "_")) := imap(.SD, ~ . - stats::predict(first_stage_est[lhs = .y], newdata = data)),
+		data[, (paste("zz000adj", yvars, sep = "_")) := imap(.SD, ~ .x - stats::predict(first_stage_est[lhs = .y], newdata = data)),
              .SDcols = yvars]
 	}
     
@@ -272,7 +272,7 @@ se_inner <- function(data, wtr, cluster){
 
     # Equation (10) of Borusyak et. al. 2021
     # Calculate tau_it - \bar{\tau}_{et}
-    data[zz000treat == 1,
+    data[,
         (tcols) := map(.SD, ~ sum(.^2 * zz000adj) / sum(.^2) * zz000treat),
         by = c(gname, "zz000event_time"),
         .SDcols = vcols]
@@ -282,9 +282,13 @@ se_inner <- function(data, wtr, cluster){
     
     # Equation (8)
     # Calculate variance of estimate
-    data[, map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
+    result <- data[!is.infinite(zz000event_time), map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
         by = cluster] %>%
         .[, map(.SD, ~ sqrt(sum(.))), .SDcols = paste0("V", seq_along(wtr))] %>%
         setnames(wtr)
+
+    data[, (c(vcols, tcols)) := NULL]
+
+    return(result)
 
 }
