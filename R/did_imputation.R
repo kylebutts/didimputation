@@ -138,7 +138,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 
             # Create wtr of horizons
             wtr <- paste0("zz000wtr", event_time[event_time >= 0])
-			walk2(event_time[event_time >= 0], wtr,
+			purrr::walk2(event_time[event_time >= 0], wtr,
 				function(e, v) data[, (v) := dplyr::if_else(is.na(zz000event_time), 0, 1 * (zz000event_time == e))])
 
 	} else {
