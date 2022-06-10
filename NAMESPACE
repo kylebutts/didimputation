@@ -3,6 +3,7 @@
 export("%>%")
 export(did_imputation)
 import(fixest)
+import(data.table)
 importFrom(Rcpp,sourceCpp)
 importFrom(magrittr,"%>%")
 useDynLib(didimputation, .registration = TRUE)

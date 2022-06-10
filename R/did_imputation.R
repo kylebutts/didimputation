@@ -16,7 +16,7 @@
 #'
 #' @import fixest
 #' @import data.table
-#' @import tidyverse
+#' @import magrittr
 #'
 #' @param data A `data.frame`
 #' @param yname String. Variable name for outcome. Use fixest c() syntax for multiple lhs.
@@ -81,9 +81,9 @@
 #' # Castle Data
 #' castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 #'
-#' did_imputation(data = castle, yname = "l_homicide", gname = "effyear",
-#'                first_stage = ~ 0 | sid + year,
-#'                tname = "year", idname = "sid")
+#' did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
+#'               first_stage = ~ 0 | sid + year,
+#'               tname = "year", idname = "sid")
 #' ```
 #'
 did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL,
@@ -107,7 +107,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     # extract lhs vars (allows fixest style multiple lhs specification)
     yvars <- sub("^c[(]", "", yname)
 	yvars <- sub("[)]$", "", yvars)
-	yvars <- str_split(yvars, "\\s*,\\s*")[[1]]
+	yvars <- stringr::str_split(yvars, "\\s*,\\s*")[[1]]
 
     # make local copy of data, convert to data.table
     needed_vars <- c(yvars, gname, tname, idname, wname, wtr, firststage_vars, cluster_var) %>% unique

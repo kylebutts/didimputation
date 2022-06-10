@@ -18,7 +18,8 @@ LinkingTo:
     RcppArmadillo
 Depends: 
     R (>= 2.10),
-    fixest (>= 0.9.0)
+    fixest (>= 0.10.0),
+    data.table (>= 1.10.0)
 Imports: 
     Matrix,
     magrittr,
