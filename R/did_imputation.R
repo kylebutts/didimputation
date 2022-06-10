@@ -119,7 +119,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     data[is.na(zz000treat), zz000treat := 0]
 
     # Create event time
-    data[, zz000event_time := if_else(is.na(.SD[[gname]]) | .SD[[gname]] == 0 | .SD[[gname]] == Inf,
+    data[, zz000event_time := dplyr::if_else(is.na(.SD[[gname]]) | .SD[[gname]] == 0 | .SD[[gname]] == Inf,
         -Inf,
         as.numeric(.SD[[tname]] - .SD[[gname]]))]
 
@@ -139,7 +139,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
             # Create wtr of horizons
             wtr <- paste0("zz000wtr", event_time[event_time >= 0])
 			walk2(event_time[event_time >= 0], wtr,
-				function(e, v) data[, (v) := if_else(is.na(zz000event_time), 0, 1 * (zz000event_time == e))])
+				function(e, v) data[, (v) := dplyr::if_else(is.na(zz000event_time), 0, 1 * (zz000event_time == e))])
 
 	} else {
             wtr <- "zz000wtrtreat"
@@ -154,9 +154,9 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 		data[, zz000weight := .SD[[wname]]]
     }
 
-	data[, (wtr) := map(.SD, ~ . * zz000weight), .SDcols = wtr]  # Multiply treatment weights * weights vector
+	data[, (wtr) := purrr::map(.SD, ~ . * zz000weight), .SDcols = wtr]  # Multiply treatment weights * weights vector
 	data[is.na(zz000weight), (wtr) := 0]
-	data[, (wtr) := map(.SD, ~ . / sum(.)), .SDcols = wtr] # Normalize
+	data[, (wtr) := purrr::map(.SD, ~ . / sum(.)), .SDcols = wtr] # Normalize
 
     # First Stage estimate ---------------------------------------------------------
 
@@ -173,15 +173,15 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 	if (length(yvars) == 1) {
 		data[, (paste("zz000adj", yvars, sep = "_")) := .SD[[yname]] - stats::predict(first_stage_est, newdata = data)]
 	} else {
-		data[, (paste("zz000adj", yvars, sep = "_")) := imap(.SD, ~ .x - stats::predict(first_stage_est[lhs = .y], newdata = data)),
+		data[, (paste("zz000adj", yvars, sep = "_")) := purrr::imap(.SD, ~ .x - stats::predict(first_stage_est[lhs = .y], newdata = data)),
              .SDcols = yvars]
 	}
     
 
     # Point estimate for wtr
     ests <- yvars %>%
-        set_names(yvars) %>%
-        map(function(y) data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]][zz000treat == 1, map(.SD, ~ sum(. * zz000adj)), .SDcols = wtr]) %>%
+        purrr::set_names(yvars) %>%
+        purrr::map(function(y) data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]][zz000treat == 1, purrr::map(.SD, ~ sum(. * zz000adj)), .SDcols = wtr]) %>%
         rbindlist(idcol = "lhs")
 
     # Standard Errors --------------------------------------------------------------
@@ -207,8 +207,8 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     if(is.null(cluster_var)) cluster_var <- idname
 
     ses <- yvars %>%
-        set_names(yvars) %>%
-        map(function(y) se_inner(data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]], wtr, cluster_var)) %>%
+        purrr::set_names(yvars) %>%
+        purrr::map(function(y) se_inner(data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]], wtr, cluster_var)) %>%
         rbindlist(idcol = "lhs")
 
 
@@ -245,7 +245,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
             pre_out <- broom::tidy(pre_est)
             pre_out$lhs <- yvars
         } else {
-            pre_out <- pre_est %>% map(broom::tidy) %>% dplyr::bind_rows(.id = "lhs")
+            pre_out <- pre_est %>% purrr::map(broom::tidy) %>% dplyr::bind_rows(.id = "lhs")
         }
 
         pre_out$term = stringr::str_remove(pre_out$term, "zz000event_time::")
@@ -272,18 +272,18 @@ se_inner <- function(data, wtr, cluster){
     # Equation (10) of Borusyak et. al. 2021
     # Calculate tau_it - \bar{\tau}_{et}
     data[,
-        (tcols) := map(.SD, ~ sum(.^2 * zz000adj) / sum(.^2) * zz000treat),
+        (tcols) := purrr::map(.SD, ~ sum(.^2 * zz000adj) / sum(.^2) * zz000treat),
         by = c(gname, "zz000event_time"),
         .SDcols = vcols]
     
     # Recenter tau by \bar{\tau}_{et}
-    data[, (tcols) := map(.SD, ~ zz000adj - replace_na(., 0)), .SDcols = tcols]
+    data[, (tcols) := purrr::map(.SD, ~ zz000adj - replace_na(., 0)), .SDcols = tcols]
     
     # Equation (8)
     # Calculate variance of estimate
-    result <- data[!is.infinite(zz000event_time), map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
+    result <- data[!is.infinite(zz000event_time), purrr::map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
         by = cluster] %>%
-        .[, map(.SD, ~ sqrt(sum(.))), .SDcols = paste0("V", seq_along(wtr))] %>%
+        .[, purrr::map(.SD, ~ sqrt(sum(.))), .SDcols = paste0("V", seq_along(wtr))] %>%
         setnames(wtr)
 
     data[, (c(vcols, tcols)) := NULL]
