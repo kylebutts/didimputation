@@ -124,7 +124,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
         as.numeric(.SD[[tname]] - .SD[[gname]]))]
 
     # Get list of event_time
-    event_time <- unique(data[, zz000event_time]) %>% keep(is.finite)
+    event_time <- unique(data[, zz000event_time]) %>% purrr::keep(is.finite)
 
     # horizon/allhorizon options
     if (is.null(wtr)) {
