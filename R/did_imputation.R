@@ -80,9 +80,9 @@
 #' # Castle Data
 #' castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 #'
-did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
-              first_stage = ~ 0 | sid + year,
-              tname = "year", idname = "sid")
+#' did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
+#'               first_stage = ~ 0 | sid + year,
+#'               tname = "year", idname = "sid")
 #' ```
 #'
 did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL,
