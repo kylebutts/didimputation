@@ -277,7 +277,7 @@ se_inner <- function(data, wtr, cluster){
         .SDcols = vcols]
     
     # Recenter tau by \bar{\tau}_{et}
-    data[, (tcols) := purrr::map(.SD, ~ zz000adj - replace_na(., 0)), .SDcols = tcols]
+    data[, (tcols) := purrr::map(.SD, ~ zz000adj - tidyr::replace_na(., 0)), .SDcols = tcols]
     
     # Equation (8)
     # Calculate variance of estimate
