@@ -16,7 +16,6 @@
 #'
 #' @import fixest
 #' @import data.table
-#' @import magrittr
 #'
 #' @param data A `data.frame`
 #' @param yname String. Variable name for outcome. Use fixest c() syntax for multiple lhs.
