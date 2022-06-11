@@ -123,6 +123,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     # make local copy of data, convert to data.table
     needed_vars <- c(yvars, gname, tname, idname, wname, wtr, rhsvars, fevars, cluster_var) %>% unique
     data <- copy(data[, needed_vars, with = F]) %>% setDT
+    rm(fixest_env)
 
     # Treatment indicator
     data[, zz000treat := 1 * (.SD[[tname]] >= .SD[[gname]]) * (.SD[[gname]] > 0)]
@@ -166,10 +167,6 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 		data[, zz000weight := .SD[[wname]]]
     }
 
-	data[, (wtr) := purrr::map(.SD, ~ . * zz000weight), .SDcols = wtr]  # Multiply treatment weights * weights vector
-	data[is.na(zz000weight), (wtr) := 0]
-	data[, (wtr) := purrr::map(.SD, ~ . / sum(.)), .SDcols = wtr] # Normalize
-
     # First Stage estimate ---------------------------------------------------------
 
     # Estimate Y(0) using untreated observations
@@ -186,6 +183,16 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
              .SDcols = yvars]
 	}
     
+    # drop anything with missing values of the residualized outcome
+    todrop <- apply(is.na(data[, paste("zz000adj", yvars, sep = "_"), with = F]),
+                    MARGIN = 1,
+                    FUN = any)
+    data <- data[!todrop, ]
+
+	data[, (wtr) := purrr::map(.SD, ~ . * zz000weight), .SDcols = wtr]  # Multiply treatment weights * weights vector
+	data[is.na(zz000weight), (wtr) := 0]
+	data[, (wtr) := purrr::map(.SD, ~ . / sum(.)), .SDcols = wtr] # Normalize
+
 
     # Point estimate for wtr
     ests <- yvars %>%
@@ -268,7 +275,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
         out = dplyr::bind_rows(pre_out, out)
     }
 
-    return(out)
+    return(dplyr::as_tibble(out))
 }
 
 
