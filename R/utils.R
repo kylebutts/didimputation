@@ -3,7 +3,7 @@ sparse_model_matrix <- function(data, fixest) {
 	Z <- NULL
 
 	# Coefficients
-	if("coefficients" %in% names(fixest)) Z <- methods::as(stats::model.matrix(fixest, data = data), "sparseMatrix")
+	if("coefficients" %in% names(fixest)) Z <- Matrix::Matrix(stats::model.matrix(fixest, data = data), sparse = T)
 
 	# Fixed Effects
 	if("fixef_id" %in% names(fixest)) {
