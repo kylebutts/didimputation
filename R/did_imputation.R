@@ -121,11 +121,6 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     stringr::str_replace("::.*", "") %>%
     unique()
 
-  # make local copy of data, convert to data.table
-  needed_vars <- c(yvars, gname, tname, idname, wname, wtr, rhsvars, fevars, cluster_var) %>% unique()
-  data <- copy(data[, needed_vars, with = F]) %>% setDT()
-  rm(fixest_env)
-
   setDT(data)
 
   # Treatment indicator
