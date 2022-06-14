@@ -11,7 +11,7 @@ did_imputation(
   tname,
   idname,
   first_stage = NULL,
-  weights = NULL,
+  wname = NULL,
   wtr = NULL,
   horizon = NULL,
   pretrends = NULL,
@@ -21,21 +21,22 @@ did_imputation(
 \arguments{
 \item{data}{A \code{data.frame}}
 
-\item{yname}{String. Variable name for outcome.}
+\item{yname}{String. Variable name for outcome. Use \code{fixest} c() syntax
+for multiple lhs.}
 
 \item{gname}{String. Variable name for unit-specific date of treatment
-(never-treated should be zero or \code{NA})}
+(never-treated should be zero or \code{NA}).}
 
-\item{tname}{String. Variable name for calendar period}
+\item{tname}{String. Variable name for calendar period.}
 
-\item{idname}{String. Variable name for unique unit id}
+\item{idname}{String. Variable name for unique unit id.}
 
 \item{first_stage}{Formula for Y(0).
 Formula following \code{\link[fixest:feols]{fixest::feols}}.
 Fixed effects specified after "\code{|}".
 If not specified, then just unit and time fixed effects will be used.}
 
-\item{weights}{String. Variable name for estimation weights of observations.
+\item{wname}{String. Variable name for estimation weights of observations.
 This is used in estimating Y(0) and also augments treatment effect weights.}
 
 \item{wtr}{Character vector of treatment weight names
@@ -75,53 +76,62 @@ form average treatment effects for groups of {it}.
 \section{Examples}{
 
 
-Load example dataset which has two treatment groups and homogeneous treatment effects\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Load Example Dataset
+Load example dataset which has two treatment groups and homogeneous treatment effects
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Load Example Dataset
 data("df_hom", package="did2s")
 }\if{html}{\out{</div>}}
 \subsection{Static TWFE}{
 
-You can run a static TWFE fixed effect model for a simple treatment indicator\if{html}{\out{<div class="sourceCode r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
+You can run a static TWFE fixed effect model for a simple treatment indicator
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
                tname = "year", idname = "unit")
-#> # A tibble: 1 × 5
-#>   term  estimate std.error conf.low conf.high
-#>   <chr>    <dbl>     <dbl>    <dbl>     <dbl>
-#> 1 treat     2.02    0.0324     1.96      2.09
+#> # A tibble: 1 × 6
+#>   lhs     term  estimate std.error conf.low conf.high
+#>   <chr>   <chr>    <dbl>     <dbl>    <dbl>     <dbl>
+#> 1 dep_var treat     2.00    0.0134     1.98      2.03
 }\if{html}{\out{</div>}}
 }
 
 \subsection{Event Study}{
 
-Or you can use relative-treatment indicators to estimate an event study estimate\if{html}{\out{<div class="sourceCode r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
+Or you can use relative-treatment indicators to estimate an event study estimate
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
                tname = "year", idname = "unit", horizon=TRUE)
-#> # A tibble: 21 × 5
-#>    term  estimate std.error conf.low conf.high
-#>    <chr>    <dbl>     <dbl>    <dbl>     <dbl>
-#>  1 0         2.12    0.0737     1.97      2.26
-#>  2 1         1.86    0.0729     1.71      2.00
-#>  3 2         1.99    0.0727     1.84      2.13
-#>  4 3         2.00    0.0763     1.86      2.15
-#>  5 4         1.95    0.0767     1.80      2.10
-#>  6 5         2.04    0.0741     1.89      2.18
-#>  7 6         2.03    0.0716     1.89      2.17
-#>  8 7         2.03    0.0743     1.88      2.17
-#>  9 8         1.98    0.0726     1.83      2.12
-#> 10 9         2.12    0.0758     1.97      2.27
+#> # A tibble: 21 × 6
+#>    lhs     term  estimate std.error conf.low conf.high
+#>    <chr>   <chr>    <dbl>     <dbl>    <dbl>     <dbl>
+#>  1 dep_var 0         1.97    0.0340     1.90      2.04
+#>  2 dep_var 1         2.05    0.0353     1.98      2.12
+#>  3 dep_var 2         2.03    0.0350     1.96      2.10
+#>  4 dep_var 3         1.97    0.0347     1.90      2.03
+#>  5 dep_var 4         1.97    0.0336     1.90      2.03
+#>  6 dep_var 5         2.03    0.0342     1.96      2.10
+#>  7 dep_var 6         2.04    0.0365     1.97      2.11
+#>  8 dep_var 7         2.00    0.0358     1.92      2.07
+#>  9 dep_var 8         2.02    0.0352     1.95      2.09
+#> 10 dep_var 9         1.96    0.0356     1.89      2.03
 #> # … with 11 more rows
 }\if{html}{\out{</div>}}
 }
 
 \subsection{Example from Cheng and Hoekstra (2013)}{
 
-Here's an example using data from Cheng and Hoekstra (2013)\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Castle Data
+Here's an example using data from Cheng and Hoekstra (2013)
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Castle Data
 castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 
-did_imputation(data = castle, yname = "l_homicide", gname = "effyear",
-               first_stage = ~ 0 | sid + year,
-               tname = "year", idname = "sid")
-#> # A tibble: 1 × 5
-#>   term  estimate std.error conf.low conf.high
-#>   <chr>    <dbl>     <dbl>    <dbl>     <dbl>
-#> 1 treat   0.0798    0.0531  -0.0243     0.184
+did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
+              first_stage = ~ 0 | sid + year,
+              tname = "year", idname = "sid")
+#> # A tibble: 2 × 6
+#>   lhs        term  estimate std.error conf.low conf.high
+#>   <chr>      <chr>    <dbl>     <dbl>    <dbl>     <dbl>
+#> 1 l_homicide treat   0.0798    0.0531  -0.0243     0.184
+#> 2 l_assault  treat   0.0496    0.0460  -0.0405     0.140
 }\if{html}{\out{</div>}}
 }
 }
