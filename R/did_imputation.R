@@ -297,7 +297,7 @@ se_inner <- function(data, v_star, wtr, cluster, gname){
     
     # Equation (8)
     # Calculate variance of estimate
-    result <- data[!is.infinite(zz000event_time), purrr::map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
+    result <- data[, purrr::map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
         by = cluster] %>%
         .[, purrr::map(.SD, ~ sqrt(sum(.))), .SDcols = paste0("V", seq_along(wtr))] %>%
         setnames(wtr)
