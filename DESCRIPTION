@@ -1,7 +1,7 @@
 Package: didimputation
 Type: Package
 Title: Imputation Estimator from Borusyak, Jaravel, and Spiess (2021)
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: 
     c(person(given = "Kyle",
              family = "Butts",
@@ -12,13 +12,14 @@ Description: Estimates Two-way Fixed Effects difference-in-differences/event-stu
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.0
 LinkingTo: 
     Rcpp,
     RcppArmadillo
 Depends: 
     R (>= 2.10),
-    fixest (>= 0.9.0)
+    fixest (>= 0.10.0),
+    data.table (>= 1.10.0)
 Imports: 
     Matrix,
     magrittr,
@@ -26,9 +27,9 @@ Imports:
     broom,
     dplyr,
     glue,
-    methods,
-    rlang,
-    stringr
+    stringr,
+    purrr,
+    tidyr
 Suggests: 
     haven,
     testthat (>= 3.0.0)
