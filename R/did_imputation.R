@@ -121,6 +121,11 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     stringr::str_replace("::.*", "") %>%
     unique()
 
+  # make local copy of data, convert to data.table
+  needed_vars <- unique(c(yvars, gname, tname, idname, wname, wtr, rhsvars, fevars, cluster_var))
+  data <- copy(data[, needed_vars]) %>% setDT()
+  rm(fixest_env)
+
   setDT(data)
 
   # Treatment indicator
@@ -130,13 +135,14 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
   data[is.na(zz000treat), zz000treat := 0]
 
   # Create event time
-  data[, zz000event_time := dplyr::if_else(is.na(.SD[[gname]]) | .SD[[gname]] == 0 | .SD[[gname]] == Inf,
+  data[, zz000event_time := ifelse(
+    is.na(.SD[[gname]]) | .SD[[gname]] == 0 | .SD[[gname]] == Inf,
     -Inf,
     as.numeric(.SD[[tname]] - .SD[[gname]])
   )]
 
   # Get list of event_time
-  event_time <- unique(data[, zz000event_time]) %>% purrr::keep(is.finite)
+  event_time <- unique(data[["zz000event_time"]][is.finite(data$zz000event_time)])
 
   # horizon/allhorizon options
   if (is.null(wtr)) {
@@ -150,6 +156,7 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 
       # Create wtr of horizons
       wtr <- paste0("zz000wtr", event_time[event_time >= 0])
+
       purrr::walk2(
         event_time[event_time >= 0], wtr,
         function(e, v) data[, (v) := dplyr::if_else(is.na(zz000event_time), 0, 1 * (zz000event_time == e))]
@@ -181,13 +188,17 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
   if (length(yvars) == 1) {
     data[, (paste("zz000adj", yvars, sep = "_")) := .SD[[yname]] - stats::predict(first_stage_est, newdata = data)]
   } else {
-    data[, (paste("zz000adj", yvars, sep = "_")) := purrr::imap(.SD, ~ .x - stats::predict(first_stage_est[lhs = .y], newdata = data)),
+    data[,
+	  (paste("zz000adj", yvars, sep = "_")) := purrr::imap(.SD, function(x, y) {
+	    x - stats::predict(first_stage_est[lhs = y], newdata = data)
+	  }),
       .SDcols = yvars
     ]
   }
 
   # drop anything with missing values of the residualized outcome
-  todrop <- apply(is.na(data[, paste("zz000adj", yvars, sep = "_"), with = F]),
+  todrop <- apply(
+  	is.na(data[, paste("zz000adj", yvars, sep = "_"), with = F]),
     MARGIN = 1,
     FUN = any
   )
@@ -201,7 +212,14 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
   # Point estimate for wtr
   ests <- yvars %>%
     purrr::set_names(yvars) %>%
-    purrr::map(function(y) data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]][zz000treat == 1, purrr::map(.SD, ~ sum(. * zz000adj)), .SDcols = wtr]) %>%
+    purrr::map(function(y) {
+	  data[,
+	    zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]
+	  ][
+	    zz000treat == 1,
+	    purrr::map(.SD, ~ sum(. * zz000adj)), .SDcols = wtr
+      ]
+	}) %>%
     rbindlist(idcol = "lhs")
 
   # Standard Errors --------------------------------------------------------------
@@ -228,7 +246,12 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 
   ses <- yvars %>%
     purrr::set_names(yvars) %>%
-    purrr::map(function(y) se_inner(data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]], v_star, wtr, cluster_var, gname)) %>%
+    purrr::map(function(y) {
+      se_inner(
+        data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]],
+    	v_star, wtr, cluster_var, gname
+	  )
+	}) %>%
     rbindlist(idcol = "lhs")
 
 
@@ -252,17 +275,21 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 
 
   # Create dataframe of results in tidy format -----------------------------------
-  ests <- ests %>%
-  	melt(id.vars = "lhs", variable.name = "term", value.name = "estimate")
-  ses <- ses %>%
-  	melt(id.vars = "lhs", variable.name = "term", value.name = "std.error")
+  ests <- data.table::melt(
+    ests,
+    id.vars = "lhs", variable.name = "term", value.name = "estimate"
+  )
+  ses <- data.table::melt(
+    ses,
+    id.vars = "lhs", variable.name = "term", value.name = "std.error"
+  )
 
   out <- ests[ses, on = .(lhs, term)] %>%
-    .[, term := as.character(stringr::str_replace(term, "zz000wtr", ""))] %>%
     .[, `:=`(
-    	conf.low = estimate - 1.96 * std.error,
-    	conf.high = estimate + 1.96 * std.error
-	)]
+      term = as.character(stringr::str_replace(term, "zz000wtr", "")),
+      conf.low = estimate - 1.96 * std.error,
+      conf.high = estimate + 1.96 * std.error
+    )]
 
 
   if (!is.null(pretrends)) {
@@ -309,7 +336,9 @@ se_inner <- function(data, v_star, wtr, cluster, gname) {
 
   # Equation (8)
   # Calculate variance of estimate
-  result <- data[!is.infinite(zz000event_time), purrr::map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
+  result <- data[
+    !is.infinite(zz000event_time),
+    purrr::map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
     by = cluster
   ] %>%
     .[, purrr::map(.SD, ~ sqrt(sum(.))), .SDcols = paste0("V", seq_along(wtr))] %>%

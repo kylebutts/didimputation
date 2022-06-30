@@ -27,9 +27,9 @@ Imports:
     broom,
     dplyr,
     glue,
-    methods,
-    rlang,
-    stringr
+    stringr,
+    purrr,
+    tidyr
 Suggests: 
     haven,
     testthat (>= 3.0.0)
