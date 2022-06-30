@@ -317,34 +317,31 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 }
 
 
-se_inner <- function(data, v_star, wtr, cluster, gname) {
-  # Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
-  vcols <- paste0("zz000v", seq_along(wtr))
-  tcols <- paste0("zz000tau_et", seq_along(wtr))
-  data[, (vcols) := split(v_star, col(v_star))]
+se_inner <- function(data, v_star, wtr, cluster, gname){
+    # Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
+    vcols <- paste0("zz000v", seq_along(wtr))
+    tcols <- paste0("zz000tau_et", seq_along(wtr))
+    data[, (vcols) := split(v_star, col(v_star))]
 
-  # Equation (10) of Borusyak et. al. 2021
-  # Calculate tau_it - \bar{\tau}_{et}
-  data[,
-    (tcols) := purrr::map(.SD, ~ sum(.^2 * zz000adj) / sum(.^2) * zz000treat),
-    by = c(gname, "zz000event_time"),
-    .SDcols = vcols
-  ]
+    # Equation (10) of Borusyak et. al. 2021
+    # Calculate tau_it - \bar{\tau}_{et}
+    data[,
+        (tcols) := purrr::map(.SD, ~ sum(.^2 * zz000adj) / sum(.^2) * zz000treat),
+        by = c(gname, "zz000event_time"),
+        .SDcols = vcols]
+    
+    # Recenter tau by \bar{\tau}_{et}
+    data[, (tcols) := purrr::map(.SD, ~ zz000adj - tidyr::replace_na(., 0)), .SDcols = tcols]
+    
+    # Equation (8)
+    # Calculate variance of estimate
+    result <- data[, purrr::map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
+        by = cluster] %>%
+        .[, purrr::map(.SD, ~ sqrt(sum(.))), .SDcols = paste0("V", seq_along(wtr))] %>%
+        setnames(wtr)
 
-  # Recenter tau by \bar{\tau}_{et}
-  data[, (tcols) := purrr::map(.SD, ~ zz000adj - tidyr::replace_na(., 0)), .SDcols = tcols]
+    data[, (c(vcols, tcols)) := NULL]
 
-  # Equation (8)
-  # Calculate variance of estimate
-  result <- data[
-    !is.infinite(zz000event_time),
-    purrr::map2(vcols, tcols, ~ sum(.SD[[.x]] * .SD[[.y]])^2),
-    by = cluster
-  ] %>%
-    .[, purrr::map(.SD, ~ sqrt(sum(.))), .SDcols = paste0("V", seq_along(wtr))] %>%
-    setnames(wtr)
+    return(result)
 
-  data[, (c(vcols, tcols)) := NULL]
-
-  return(result)
 }
