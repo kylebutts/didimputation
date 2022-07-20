@@ -23,7 +23,7 @@ test_that("estimation runs", {
 	expect_error(did_imputation(
 		data = df_hom, yname = "dep_var", gname = "g",
 		tname = "year", idname = "unit", horizon = T, pretrends = c(-2,-1),
-		weights = "weight"),
+		wname = "weight"),
 		NA)
 	# Castle data
 	expect_error(did_imputation(
