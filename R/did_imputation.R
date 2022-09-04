@@ -189,8 +189,8 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
     data[, (paste("zz000adj", yvars, sep = "_")) := .SD[[yname]] - stats::predict(first_stage_est, newdata = data)]
   } else {
     data[,
-	  (paste("zz000adj", yvars, sep = "_")) := purrr::imap(.SD, function(x, y) {
-	    x - stats::predict(first_stage_est[lhs = y], newdata = data)
+	  (paste("zz000adj", yvars, sep = "_")) := purrr::imap(.SD, function(xx000, yy000) {
+	    xx000 - stats::predict(first_stage_est[lhs = yy000], newdata = data)
 	  }),
       .SDcols = yvars
     ]
@@ -212,9 +212,9 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
   # Point estimate for wtr
   ests <- yvars %>%
     purrr::set_names(yvars) %>%
-    purrr::map(function(y) {
+    purrr::map(function(yy000) {
 	  data[,
-	    zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]
+	    zz000adj := .SD[[paste("zz000adj", yy000, sep = "_")]]
 	  ][
 	    zz000treat == 1,
 	    purrr::map(.SD, ~ sum(. * zz000adj)), .SDcols = wtr
@@ -246,9 +246,9 @@ did_imputation <- function(data, yname, gname, tname, idname, first_stage = NULL
 
   ses <- yvars %>%
     purrr::set_names(yvars) %>%
-    purrr::map(function(y) {
+    purrr::map(function(yy000) {
       se_inner(
-        data[, zz000adj := .SD[[paste("zz000adj", y, sep = "_")]]],
+        data[, zz000adj := .SD[[paste("zz000adj", yy000, sep = "_")]]],
     	v_star, wtr, cluster_var, gname
 	  )
 	}) %>%
