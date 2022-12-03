@@ -22,14 +22,7 @@ Depends:
     data.table (>= 1.10.0)
 Imports: 
     Matrix,
-    magrittr,
-    Rcpp,
-    broom,
-    dplyr,
-    glue,
-    stringr,
-    purrr,
-    tidyr
+    Rcpp
 Suggests: 
     haven,
     testthat (>= 3.0.0)

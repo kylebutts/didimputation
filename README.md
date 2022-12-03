@@ -23,57 +23,39 @@ I will load example data from the package and plot the average outcome
 among the groups. Here is one unit’s data:
 
 ``` r
-library(tidyverse)
-#> ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──
-#> ✓ ggplot2 3.3.5     ✓ purrr   0.3.4
-#> ✓ tibble  3.1.3     ✓ dplyr   1.0.7
-#> ✓ tidyr   1.1.3     ✓ stringr 1.4.0
-#> ✓ readr   2.0.0     ✓ forcats 0.5.1
-#> ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-#> x dplyr::filter() masks stats::filter()
-#> x dplyr::lag()    masks stats::lag()
 library(didimputation)
 #> Loading required package: fixest
-#> From fixest 0.9.0 onward, BREAKING changes! (Permanently remove this message with fixest_startup_msg(FALSE).) 
-#> - In i():
-#>     + the first two arguments have been swapped! Now it's i(factor_var, continuous_var) for interactions. 
-#>     + argument 'drop' has been removed (put everything in 'ref' now).
-#> - In feglm(): 
-#>     + the default family becomes 'gaussian' to be in line with glm(). Hence, for Poisson estimations, please use fepois() instead.
+#> Loading required package: data.table
 library(fixest)
-
-# Load theme
-source("https://raw.githubusercontent.com/kylebutts/templates/master/ggplot_theme/theme_kyle.R")
-#> Loading required package: showtext
-#> Loading required package: sysfonts
-#> Loading required package: showtextdb
+library(ggplot2)
 
 # Load Data from did2s package
-data("df_het", package="did2s")
+data("df_het", package = "didimputation")
+setDT(df_het)
 ```
 
 Here is a plot of the average outcome variable for each of the groups:
 
 ``` r
 # Plot Data 
-df_avg <- df_het %>% 
-  group_by(group, year) %>% 
-  summarize(dep_var = mean(dep_var), .groups = 'drop')
+df_avg <- df_het[, 
+  .(dep_var = mean(dep_var)), 
+  by = .(group, year)
+]
 
 # Get treatment years for plotting
-gs <- df_het %>% 
-  filter(treat == TRUE) %>% 
-  pull(g) %>% unique()
-    
+gs <- df_het[treat == TRUE, unique(g)]
     
 ggplot() + 
     geom_line(data = df_avg, mapping = aes(y = dep_var, x = year, color = group), size = 1.5) +
     geom_vline(xintercept = gs - 0.5, linetype = "dashed") + 
-    theme_kyle(base_size = 16) +
+    theme_minimal(base_size = 16) +
     theme(legend.position = "bottom") +
     labs(y = "Outcome", x = "Year", color = "Treatment Cohort") + 
     scale_y_continuous(expand = expansion(add = .5)) + 
     scale_color_manual(values = c("Group 1" = "#d2382c", "Group 2" = "#497eb3", "Group 3" = "#8e549f")) 
+#> Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+#> ℹ Please use `linewidth` instead.
 ```
 
 <div class="figure">
@@ -90,14 +72,14 @@ Example data with heterogeneous treatment effects
 First, lets estimate a static did:
 
 ``` r
+
 # Static
 static <- did_imputation(data = df_het, yname = "dep_var", gname = "g", tname = "year", idname = "unit")
 
 static
-#> # A tibble: 1 × 5
-#>   term  estimate std.error conf.low conf.high
-#>   <chr>    <dbl>     <dbl>    <dbl>     <dbl>
-#> 1 treat     2.26    0.0314     2.20      2.32
+#>      term estimate  std.error conf.low conf.high
+#>    <char>    <num>      <num>    <num>     <num>
+#> 1:  treat 2.262952 0.03139684 2.201414   2.32449
 ```
 
 This is very close to the true treatment effect of 2.2384912.
@@ -105,6 +87,7 @@ This is very close to the true treatment effect of 2.2384912.
 Then, let’s estimate an event study did:
 
 ``` r
+
 # Event Study
 es <- did_imputation(data = df_het, yname = "dep_var", gname = "g",
                tname = "year", idname = "unit", 
@@ -112,46 +95,63 @@ es <- did_imputation(data = df_het, yname = "dep_var", gname = "g",
                horizon=TRUE, pretrends = -5:-1)
 
 es
-#> # A tibble: 26 × 5
-#>    term  estimate std.error conf.low conf.high
-#>    <chr>    <dbl>     <dbl>    <dbl>     <dbl>
-#>  1 -5     -0.0641    0.0767  -0.214     0.0861
-#>  2 -4     -0.0120    0.0753  -0.160     0.136 
-#>  3 -3     -0.0139    0.0765  -0.164     0.136 
-#>  4 -2      0.0510    0.0770  -0.0999    0.202 
-#>  5 -1      0.0202    0.0758  -0.128     0.169 
-#>  6 0       1.51      0.0755   1.37      1.66  
-#>  7 1       1.66      0.0841   1.50      1.83  
-#>  8 2       1.86      0.0829   1.70      2.03  
-#>  9 3       1.92      0.0843   1.75      2.08  
-#> 10 4       1.87      0.0842   1.71      2.04  
-#> # … with 16 more rows
+#>       term    estimate  std.error    conf.low  conf.high
+#>     <char>       <num>      <num>       <num>      <num>
+#>  1:     -5 -0.06412085 0.07634962 -0.21376611 0.08552441
+#>  2:     -4 -0.01201577 0.07634962 -0.16166103 0.13762949
+#>  3:     -3 -0.01387197 0.07634962 -0.16351723 0.13577329
+#>  4:     -2  0.05103140 0.07634962 -0.09861386 0.20067666
+#>  5:     -1  0.02022464 0.07634962 -0.12942062 0.16986990
+#>  6:      0  1.51314201 0.07547736  1.36520639 1.66107763
+#>  7:      1  1.66384318 0.07675141  1.51341041 1.81427594
+#>  8:      2  1.86436720 0.07450151  1.71834424 2.01039015
+#>  9:      3  1.91872093 0.07471704  1.77227552 2.06516633
+#> 10:      4  1.87322387 0.07418170  1.72782773 2.01862001
+#> 11:      5  1.87844597 0.07567190  1.73012905 2.02676290
+#> 12:      6  2.14373139 0.07632691  1.99413065 2.29333213
+#> 13:      7  2.23777696 0.07610842  2.08860445 2.38694946
+#> 14:      8  2.33650066 0.07446268  2.19055381 2.48244751
+#> 15:      9  2.34352836 0.07471679  2.19708345 2.48997326
+#> 16:     10  2.53443351 0.08109550  2.37548633 2.69338068
+#> 17:     11  2.47944533 0.11953547  2.24515580 2.71373486
+#> 18:     12  2.63493727 0.11531779  2.40891439 2.86096014
+#> 19:     13  2.94449757 0.11047299  2.72797052 3.16102462
+#> 20:     14  2.78171206 0.11466367  2.55697127 3.00645285
+#> 21:     15  2.71470743 0.12030494  2.47890975 2.95050510
+#> 22:     16  2.88065382 0.11563154  2.65401601 3.10729163
+#> 23:     17  2.99383855 0.11438496  2.76964404 3.21803306
+#> 24:     18  2.64616896 0.11545789  2.41987148 2.87246643
+#> 25:     19  2.87530636 0.11405840  2.65175189 3.09886082
+#> 26:     20  2.90465651 0.11320219  2.68278023 3.12653280
+#>       term    estimate  std.error    conf.low  conf.high
 ```
 
 And plot the results:
 
 ``` r
-pts <- es %>%
-    select(rel_year = term, estimate, std.error) %>%
-    mutate(
-        ci_lower = estimate - 1.96 * std.error,
-        ci_upper = estimate + 1.96 * std.error,
-        group = "DID Imputation Estimate",
-        rel_year = as.numeric(rel_year)
-    ) %>%
-    filter(rel_year >= -8 & rel_year <= 8) %>% 
-    mutate(rel_year = rel_year + 0.1)
 
-te_true <- df_het %>%
-    # Keep only treated units
-    filter(g > 0) %>%
-    group_by(rel_year) %>%
-    summarize(estimate = mean(te + te_dynamic)) %>%
-      mutate(group = "True Effect") %>%
-    filter(rel_year >= -8 & rel_year <= 8) %>% 
-    mutate(rel_year = rel_year)
+pts <- es |> 
+  DT(, .(rel_year = term, estimate, std.error)) |>
+  DT(, let(
+    ci_lower = estimate - 1.96 * std.error,
+    ci_upper = estimate + 1.96 * std.error,
+    group = "DID Imputation Estimate",
+    rel_year = as.numeric(rel_year)
+  )) |>
+  DT(, rel_year := rel_year + 0.1)
 
-pts <- bind_rows(pts, te_true)
+te_true <- df_het |>
+    DT(
+      g > 0, 
+      .(estimate = mean(te + te_dynamic)), 
+      by = "rel_year"
+    ) |> 
+    DT(, group := "True Effect")
+
+pts <- rbind(pts, te_true, fill = TRUE)
+
+pts = pts |>
+  DT(rel_year >= -8 & rel_year <= 8, )
 
 max_y <- max(pts$estimate)
 
@@ -170,9 +170,9 @@ ggplot() +
     scale_y_continuous(minor_breaks = NULL) +
     scale_color_manual(values = c("DID Imputation Estimate" = "steelblue", "True Effect" = "#b44682")) +
     labs(x = "Relative Time", y = "Estimate", color = NULL, title = NULL) +
-    theme_kyle(base_size = 16) +
+    theme_minimal(base_size = 16) +
     theme(legend.position = "bottom")
-#> Warning: Removed 17 rows containing missing values (geom_segment).
+#> Warning: Removed 17 rows containing missing values (`geom_segment()`).
 ```
 
 <div class="figure">
@@ -187,26 +187,75 @@ Event-study plot with example data
 ### Comparison to TWFE
 
 ``` r
+
 # TWFE
-twfe <- fixest::feols(dep_var ~ i(rel_year, ref=c(-1, Inf)) | unit + year, data = df_het) %>%
-    broom::tidy() %>%
-    filter(str_detect(term, "rel_year::")) %>%
-    select(rel_year = term, estimate, std.error) %>%
-    mutate(
-        rel_year = as.numeric(str_remove(rel_year, "rel_year::")),
-        ci_lower = estimate - 1.96 * std.error,
-        ci_upper = estimate + 1.96 * std.error,
-        group = "TWFE Estimate"
-    ) %>%
-    filter(rel_year <= 8 & rel_year >= -8) %>% 
-    mutate(rel_year = rel_year - 0.1)
+twfe <- fixest::feols(dep_var ~ i(rel_year, ref=c(-1, Inf)) | unit + year, data = df_het) 
+
+twfe_est = broom::tidy(twfe)
+
+twfe_est = twfe_est |> 
+  DT(grepl(term, "rel_year::")) |>
+  DT(, .(rel_year = term, estimate, std.error)) |> 
+  DT(, let(
+    rel_year = as.numeric(gsub("rel_year::", "", rel_year)),
+    ci_lower = estimate - 1.96 * std.error,
+    ci_upper = estimate + 1.96 * std.error,
+    group = "TWFE Estimate"
+  )) |>
+  DT(rel_year <= 8 & rel_year >= -8, ) |> 
+  DT(, rel_year := rel_year - 0.1)
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
+
+#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
+#> the first element will be used
 
 # Add TWFE Points
-both_pts <- pts %>% mutate(
-        group = if_else(group == "Estimated Effect", "DID Imputation Estimate", group)
-    ) %>% 
-    bind_rows(., twfe)
+both_pts <- rbind(pts, twfe_est, fill = TRUE)
 
+max_y <- max(pts$estimate)
 
 ggplot() +
     # 0 effect
@@ -223,9 +272,9 @@ ggplot() +
     scale_y_continuous(minor_breaks = NULL) +
     scale_color_manual(values = c("DID Imputation Estimate" = "steelblue", "True Effect" = "#b44682", "TWFE Estimate" = "#82b446")) +
     labs(x = "Relative Time", y = "Estimate", color = NULL, title = NULL) +
-    theme_kyle(base_size = 16) +
+    theme_minimal(base_size = 16) +
     theme(legend.position = "bottom")
-#> Warning: Removed 17 rows containing missing values (geom_segment).
+#> Warning: Removed 17 rows containing missing values (`geom_segment()`).
 ```
 
 <div class="figure">
@@ -236,5 +285,3 @@ TWFE and Two-Stage estimates of Event-Study
 </p>
 
 </div>
-
-# References

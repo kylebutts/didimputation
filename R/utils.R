@@ -1,40 +1,56 @@
 # Make a sparse_model_matrix for fixest estimate. This only keeps the variables that are not removed from `fixest::feols`
 sparse_model_matrix <- function(data, fixest) {
-	Z <- NULL
+	
+  Z <- NULL
 
 	# Coefficients
-	if("coefficients" %in% names(fixest)) Z <- Matrix::Matrix(stats::model.matrix(fixest, data = data), sparse = T)
+	if("coefficients" %in% names(fixest)) {
+    Z <- Matrix::Matrix(stats::model.matrix(fixest, data = data), sparse = T)
+  }
 
 	# Fixed Effects
 	if("fixef_id" %in% names(fixest)) {
+    # check for interacted FE
 		if (any(grepl("[\\^]", fixest$fixef_vars))) {
-			# check for interacted FE
 			interacted <- grep("[\\^]", fixest$fixef_vars, value = T)
-			de_interacted <- stringr::str_split(interacted, stringr::fixed("^"))
+			de_interacted <- strsplit(interacted, "\\^")
 
-			data[, (sub("\\^", "_", interacted)) := purrr::map(de_interacted, ~ do.call(function(...) paste(..., sep = "_"), .SD[, ., with = F]))]
+      # TODO: This is memory inefficient
+      # Create interactions with ^
+			data[, 
+        (sub("\\^", "_", interacted)) := 
+          lapply(de_interacted, function(x) {
+            do.call(
+              function(...) paste(..., sep = "_"), 
+              .SD[, x, with = F]
+            )
+          })
+      ]
 		} 
 
-		frmlas <- purrr::map(
-			paste("~ 0 +", glue::glue("factor({sub('\\\\^', '_', fixest$fixef_vars)})")),
-			stats::as.formula
-		)
+    frmla <- paste(
+      "~ 0 +", 
+      paste("factor(", sub('\\^', '_', fixest$fixef_vars), ")", collapse = " + ")
+    ) |> 
+      stats::as.formula()
 
-		Z_fixef <- do.call(cbind,
-			purrr::map(frmlas,
-						~ Matrix::sparse.model.matrix(., data = data)))
-
+		Z_fixef <- Matrix::sparse.model.matrix(frmla, data = data)
 
 		fe_list <- fixest::fixef(fixest, sorted = F, notes = F)
 
 		if(sum(attr(fe_list, "references")) == length(fe_list) - 1) {
 			# regular FE
-			select <- purrr::imap(fe_list,
-			function(fes, fe_name){
-				fe_levels <- names(fes)[abs(fes) > fixest$fixef.tol]
-				glue::glue("factor({sub('\\\\^', '_', fe_name)}){fe_levels}")
-				}) %>%
-			unlist
+			select <- lapply(seq_along(fe_list), function(idx) {
+        fes = fe_list[[idx]]
+        fe_name = names(fe_list)[idx]
+        
+        # Only keep FEs that are not-omitted
+        fe_levels <- names(fes)[abs(fes) > fixest$fixef.tol]
+
+        paste0("factor(", sub('\\^', '_', fe_name), ")", fe_levels)
+      }) |>
+			  unlist()
+        
 		} else {
 			# not regular
 			qrZ <- Matrix::qr(Z_fixef)
@@ -43,8 +59,6 @@ sparse_model_matrix <- function(data, fixest) {
 			keepcols <- which(diagR > tol * max(diagR))
 			select <- qrZ@q[keepcols] + 1
 		}
-
-
 
 		Z <- cbind(Z, Z_fixef[, select])
 	}

@@ -34,36 +34,31 @@ devtools::install_github("kylebutts/didimputation")
 I will load example data from the package and plot the average outcome among the groups. Here is one unit's data:
 
 ```{r load-data, code_folding=TRUE,}
-
-library(tidyverse)
 library(didimputation)
 library(fixest)
-
-# Load theme
-source("https://raw.githubusercontent.com/kylebutts/templates/master/ggplot_theme/theme_kyle.R")
+library(ggplot2)
 
 # Load Data from did2s package
-data("df_het", package="did2s")
+data("df_het", package = "didimputation")
+setDT(df_het)
 ```
 
 Here is a plot of the average outcome variable for each of the groups:
 
 ```{r plot-df-het, fig.width=8, fig.height=4, fig.cap="Example data with heterogeneous treatment effects", code_folding=TRUE, layout="l-body-outset"}
 # Plot Data 
-df_avg <- df_het %>% 
-  group_by(group, year) %>% 
-  summarize(dep_var = mean(dep_var), .groups = 'drop')
+df_avg <- df_het[, 
+  .(dep_var = mean(dep_var)), 
+  by = .(group, year)
+]
 
 # Get treatment years for plotting
-gs <- df_het %>% 
-  filter(treat == TRUE) %>% 
-  pull(g) %>% unique()
-	
+gs <- df_het[treat == TRUE, unique(g)]
 	
 ggplot() + 
 	geom_line(data = df_avg, mapping = aes(y = dep_var, x = year, color = group), size = 1.5) +
 	geom_vline(xintercept = gs - 0.5, linetype = "dashed") + 
-	theme_kyle(base_size = 16) +
+	theme_minimal(base_size = 16) +
 	theme(legend.position = "bottom") +
 	labs(y = "Outcome", x = "Year", color = "Treatment Cohort") + 
 	scale_y_continuous(expand = expansion(add = .5)) + 
@@ -84,7 +79,7 @@ static
 
 ```
 
-This is very close to the true treatment effect of `r df_het %>% filter(treat == 1) %>% summarize(att = mean(te + te_dynamic)) %>% pull(att)`.
+This is very close to the true treatment effect of `r df_het[treat == 1, mean(te + te_dynamic)]`.
 
 Then, let's estimate an event study did:
 
@@ -104,27 +99,28 @@ And plot the results:
 
 ```{r plot-es, fig.width=8, fig.height=4, fig.cap="Event-study plot with example data", code_folding=TRUE, layout="l-body-outset"}
 
-pts <- es %>%
-	select(rel_year = term, estimate, std.error) %>%
-    mutate(
-        ci_lower = estimate - 1.96 * std.error,
-        ci_upper = estimate + 1.96 * std.error,
-        group = "DID Imputation Estimate",
-        rel_year = as.numeric(rel_year)
-    ) %>%
-    filter(rel_year >= -8 & rel_year <= 8) %>% 
-    mutate(rel_year = rel_year + 0.1)
+pts <- es |> 
+  DT(, .(rel_year = term, estimate, std.error)) |>
+  DT(, let(
+    ci_lower = estimate - 1.96 * std.error,
+    ci_upper = estimate + 1.96 * std.error,
+    group = "DID Imputation Estimate",
+    rel_year = as.numeric(rel_year)
+  )) |>
+  DT(, rel_year := rel_year + 0.1)
 
-te_true <- df_het %>%
-    # Keep only treated units
-    filter(g > 0) %>%
-    group_by(rel_year) %>%
-    summarize(estimate = mean(te + te_dynamic)) %>%
-	  mutate(group = "True Effect") %>%
-    filter(rel_year >= -8 & rel_year <= 8) %>% 
-    mutate(rel_year = rel_year)
+te_true <- df_het |>
+    DT(
+      g > 0, 
+      .(estimate = mean(te + te_dynamic)), 
+      by = "rel_year"
+    ) |> 
+    DT(, group := "True Effect")
 
-pts <- bind_rows(pts, te_true)
+pts <- rbind(pts, te_true, fill = TRUE)
+
+pts = pts |>
+  DT(rel_year >= -8 & rel_year <= 8, )
 
 max_y <- max(pts$estimate)
 
@@ -143,7 +139,7 @@ ggplot() +
     scale_y_continuous(minor_breaks = NULL) +
     scale_color_manual(values = c("DID Imputation Estimate" = "steelblue", "True Effect" = "#b44682")) +
     labs(x = "Relative Time", y = "Estimate", color = NULL, title = NULL) +
-    theme_kyle(base_size = 16) +
+    theme_minimal(base_size = 16) +
     theme(legend.position = "bottom")
 
 ```
@@ -154,25 +150,26 @@ ggplot() +
 ```{r plot-compare, fig.width=8, fig.height=4, fig.cap="TWFE and Two-Stage estimates of Event-Study", code_folding=TRUE, layout="l-body-outset"}
 
 # TWFE
-twfe <- fixest::feols(dep_var ~ i(rel_year, ref=c(-1, Inf)) | unit + year, data = df_het) %>%
-	broom::tidy() %>%
-    filter(str_detect(term, "rel_year::")) %>%
-	select(rel_year = term, estimate, std.error) %>%
-    mutate(
-        rel_year = as.numeric(str_remove(rel_year, "rel_year::")),
-        ci_lower = estimate - 1.96 * std.error,
-        ci_upper = estimate + 1.96 * std.error,
-        group = "TWFE Estimate"
-    ) %>%
-    filter(rel_year <= 8 & rel_year >= -8) %>% 
-    mutate(rel_year = rel_year - 0.1)
+twfe <- fixest::feols(dep_var ~ i(rel_year, ref=c(-1, Inf)) | unit + year, data = df_het) 
+
+twfe_est = broom::tidy(twfe)
+
+twfe_est = twfe_est |> 
+  DT(grepl(term, "rel_year::")) |>
+  DT(, .(rel_year = term, estimate, std.error)) |> 
+  DT(, let(
+    rel_year = as.numeric(gsub("rel_year::", "", rel_year)),
+    ci_lower = estimate - 1.96 * std.error,
+    ci_upper = estimate + 1.96 * std.error,
+    group = "TWFE Estimate"
+  )) |>
+  DT(rel_year <= 8 & rel_year >= -8, ) |> 
+  DT(, rel_year := rel_year - 0.1)
 
 # Add TWFE Points
-both_pts <- pts %>% mutate(
-		group = if_else(group == "Estimated Effect", "DID Imputation Estimate", group)
-	) %>% 
-	bind_rows(., twfe)
+both_pts <- rbind(pts, twfe_est, fill = TRUE)
 
+max_y <- max(pts$estimate)
 
 ggplot() +
     # 0 effect
@@ -189,15 +186,8 @@ ggplot() +
     scale_y_continuous(minor_breaks = NULL) +
     scale_color_manual(values = c("DID Imputation Estimate" = "steelblue", "True Effect" = "#b44682", "TWFE Estimate" = "#82b446")) +
     labs(x = "Relative Time", y = "Estimate", color = NULL, title = NULL) +
-    theme_kyle(base_size = 16) +
+    theme_minimal(base_size = 16) +
     theme(legend.position = "bottom")
 
 ```
-
-
-
-
-# References
-
-
 
