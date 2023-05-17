@@ -217,21 +217,29 @@ did_imputation <- function(data, yname, gname, tname, idname,
 
   # Standard Errors ------------------------------------------------------------
   if (length(yvars) == 1) {
-    Z <- sparse_model_matrix(data, first_stage_est)
+    Z <- did2s_sparse(data, first_stage_est)
   } else {
-    Z <- sparse_model_matrix(data, first_stage_est[[1]])
+    Z <- did2s_sparse(data, first_stage_est[[1]])
   }
 
   # Equation (6) of Borusyak et. al. 2021
   # - Z (Z_0' Z_0)^{-1} Z_1' wtr_1
-  v_star <- make_V_star(
-    (Z * data$zz000weight),
-    (Z * data$zz000weight)[data$zz000treat == 0, ],
-    (Z * data$zz000weight)[data$zz000treat == 1, ],
-    Matrix::Matrix(
-      as.matrix(data[data$zz000treat == 1, wtr, with = F]), 
-    sparse = TRUE)
+  Z = Z * data$zz000weight
+  wtr_mat =  Matrix::Matrix(
+    as.matrix(data[data$zz000treat == 1, wtr, with = F]),
+    sparse = TRUE
   )
+    
+  Z1 = copy(Z)
+  Z1 = Z1[which(data$zz000treat == 1),]
+  
+  Z0 = copy(Z)
+  Z0 = Z0[which(data$zz000treat == 0),]
+
+  Z1_wtr = MatrixExtra::crossprod(Z1, wtr_mat)
+  S_Z0Z0 = MatrixExtra::crossprod(Z0)
+
+  v_star <- -1 * Z %*% Matrix::solve(S_Z0Z0, Z1_wtr)
 
   # fix v_it^* = w for treated observations
   v_star[data$zz000treat == 1, ] <- 
@@ -250,7 +258,7 @@ did_imputation <- function(data, yname, gname, tname, idname,
 
   # Pre-event Estimates --------------------------------------------------------
 
-  if (!is.null(pretrends)) {
+  if (!is.null(pretrends) & !all(pretrends == FALSE)) {
     if (all(pretrends == TRUE)) {
       pre_formula <- stats::as.formula(
         paste0(yname, " ~ i(zz000event_time) + ", first_stage)
@@ -294,7 +302,7 @@ did_imputation <- function(data, yname, gname, tname, idname,
   out$conf.low = out$estimate - 1.96 * out$std.error
   out$conf.high = out$estimate + 1.96 * out$std.error
 
-  if (!is.null(pretrends)) {
+  if (!is.null(pretrends) & !all(pretrends == FALSE)) {
     if (length(yvars) == 1) {
       pre_out = pre_est$coeftable
       pre_out$term = names(pre_est$coefficients)
@@ -336,10 +344,13 @@ se_inner <- function(data, v_star, wtr, cluster_var, gname) {
   # CRAN Errors
   zz000adj = zz000treat = NULL
 
-  # Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
   vcols <- paste0("zz000v", seq_along(wtr))
   tcols <- paste0("zz000tau_et", seq_along(wtr))
-  data[, (vcols) := split(v_star, col(v_star))]
+  
+  # Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
+  for (i in seq_along(vcols)) {
+    data[, vcols[i] := v_star[, i]]
+  }
 
   # Equation (10) of Borusyak et. al. 2021
   # Calculate tau_it - \bar{\tau}_{et}

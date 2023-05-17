@@ -3,5 +3,3 @@
 export(did_imputation)
 import(data.table)
 import(fixest)
-importFrom(Rcpp,sourceCpp)
-useDynLib(didimputation, .registration = TRUE)

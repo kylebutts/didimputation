@@ -87,7 +87,6 @@ You can run a static TWFE fixed effect model for a simple treatment indicator
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{did_imputation(data = df_hom, yname = "dep_var", gname = "g",
                tname = "year", idname = "unit")
-#> Warning in eval(sub, parent.frame(), parent.frame()): NAs introduced by coercion
 #>      term estimate  std.error conf.low conf.high
 #>    <char>    <num>      <num>    <num>     <num>
 #> 1:  treat 2.024639 0.03243596 1.961065  2.088214
@@ -137,7 +136,6 @@ castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/ca
 did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
               first_stage = ~ 0 | sid + year,
               tname = "year", idname = "sid")
-#> Warning in eval(sub, parent.frame(), parent.frame()): NAs introduced by coercion
 #> Key: <lhs>
 #>           lhs   term   estimate  std.error    conf.low conf.high
 #>        <char> <char>      <num>      <num>       <num>     <num>
