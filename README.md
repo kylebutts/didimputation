@@ -37,25 +37,28 @@ setDT(df_het)
 Here is a plot of the average outcome variable for each of the groups:
 
 ``` r
-# Plot Data 
-df_avg <- df_het[, 
-  .(dep_var = mean(dep_var)), 
+# Plot Data
+df_avg <- df_het[,
+  .(dep_var = mean(dep_var)),
   by = .(group, year)
 ]
 
 # Get treatment years for plotting
 gs <- df_het[treat == TRUE, unique(g)]
-    
-ggplot() + 
-    geom_line(data = df_avg, mapping = aes(y = dep_var, x = year, color = group), size = 1.5) +
-    geom_vline(xintercept = gs - 0.5, linetype = "dashed") + 
-    theme_minimal(base_size = 16) +
-    theme(legend.position = "bottom") +
-    labs(y = "Outcome", x = "Year", color = "Treatment Cohort") + 
-    scale_y_continuous(expand = expansion(add = .5)) + 
-    scale_color_manual(values = c("Group 1" = "#d2382c", "Group 2" = "#497eb3", "Group 3" = "#8e549f")) 
+
+ggplot() +
+  geom_line(data = df_avg, mapping = aes(y = dep_var, x = year, color = group), size = 1.5) +
+  geom_vline(xintercept = gs - 0.5, linetype = "dashed") +
+  theme_minimal(base_size = 16) +
+  theme(legend.position = "bottom") +
+  labs(y = "Outcome", x = "Year", color = "Treatment Cohort") +
+  scale_y_continuous(expand = expansion(add = .5)) +
+  scale_color_manual(values = c("Group 1" = "#d2382c", "Group 2" = "#497eb3", "Group 3" = "#8e549f"))
 #> Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
 #> ℹ Please use `linewidth` instead.
+#> This warning is displayed once every 8 hours.
+#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+#> generated.
 ```
 
 <div class="figure">
@@ -72,7 +75,6 @@ Example data with heterogeneous treatment effects
 First, lets estimate a static did:
 
 ``` r
-
 # Static
 static <- did_imputation(data = df_het, yname = "dep_var", gname = "g", tname = "year", idname = "unit")
 
@@ -87,12 +89,13 @@ This is very close to the true treatment effect of 2.2384912.
 Then, let’s estimate an event study did:
 
 ``` r
-
 # Event Study
-es <- did_imputation(data = df_het, yname = "dep_var", gname = "g",
-               tname = "year", idname = "unit", 
-               # event-study
-               horizon=TRUE, pretrends = -5:-1)
+es <- did_imputation(
+  data = df_het, yname = "dep_var", gname = "g",
+  tname = "year", idname = "unit",
+  # event-study
+  horizon = TRUE, pretrends = -5:-1
+)
 
 es
 #>       term    estimate  std.error    conf.low  conf.high
@@ -129,50 +132,52 @@ es
 And plot the results:
 
 ``` r
-
-pts <- es |> 
+pts <- es |>
+  as.data.table() |>
   DT(, .(rel_year = term, estimate, std.error)) |>
   DT(, let(
     ci_lower = estimate - 1.96 * std.error,
     ci_upper = estimate + 1.96 * std.error,
     group = "DID Imputation Estimate",
     rel_year = as.numeric(rel_year)
-  )) |>
-  DT(, rel_year := rel_year + 0.1)
+  ))
 
 te_true <- df_het |>
-    DT(
-      g > 0, 
-      .(estimate = mean(te + te_dynamic)), 
-      by = "rel_year"
-    ) |> 
-    DT(, group := "True Effect")
+  DT(
+    g > 0,
+    .(estimate = mean(te + te_dynamic)),
+    by = "rel_year"
+  ) |>
+  DT(, group := "True Effect")
 
 pts <- rbind(pts, te_true, fill = TRUE)
 
-pts = pts |>
-  DT(rel_year >= -8 & rel_year <= 8, )
+pts <- pts |>
+  DT(rel_year >= -5 & rel_year <= 7, ) |> 
+  DT(, rel_year := ifelse(group == "DID Imputation Estimate", rel_year - 0.1, rel_year))
 
 max_y <- max(pts$estimate)
 
 ggplot() +
-    # 0 effect
-    geom_hline(yintercept = 0, linetype = "dashed") +
-    geom_vline(xintercept = -0.5, linetype = "dashed") +
-    # Confidence Intervals
-    geom_linerange(data = pts, mapping = aes(x = rel_year, ymin = ci_lower, ymax = ci_upper), color = "grey30") +
-    # Estimates
-    geom_point(data = pts, mapping = aes(x = rel_year, y = estimate, color = group), size = 2) +
-    # Label
-    geom_label(data = data.frame(x = -0.5 - 0.1, y = max_y + 0.25, label = "Treatment Starts ▶"), label.size=NA,
-               mapping = aes(x = x, y = y, label = label), size = 5.5, hjust = 1, fontface = 2, inherit.aes = FALSE) +
-    scale_x_continuous(breaks = -8:8, minor_breaks = NULL) +
-    scale_y_continuous(minor_breaks = NULL) +
-    scale_color_manual(values = c("DID Imputation Estimate" = "steelblue", "True Effect" = "#b44682")) +
-    labs(x = "Relative Time", y = "Estimate", color = NULL, title = NULL) +
-    theme_minimal(base_size = 16) +
-    theme(legend.position = "bottom")
-#> Warning: Removed 17 rows containing missing values (`geom_segment()`).
+  # 0 effect
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_vline(xintercept = -0.5, linetype = "dashed") +
+  # Confidence Intervals
+  geom_linerange(data = pts, mapping = aes(x = rel_year, ymin = ci_lower, ymax = ci_upper), color = "grey30") +
+  # Estimates
+  geom_point(data = pts, mapping = aes(x = rel_year, y = estimate, color = group), size = 2) +
+  # Label
+  geom_label(
+    data = data.frame(x = -0.5 - 0.1, y = max_y + 0.25, label = "Treatment Starts ▶"), label.size = NA,
+    mapping = aes(x = x, y = y, label = label), size = 5.5, hjust = 1, fontface = 2, inherit.aes = FALSE
+  ) +
+  scale_x_continuous(breaks = -8:8, minor_breaks = NULL) +
+  scale_y_continuous(minor_breaks = NULL) +
+  scale_color_manual(values = c("DID Imputation Estimate" = "steelblue", "True Effect" = "#b44682")) +
+  labs(x = "Relative Time", y = "Estimate", color = NULL, title = NULL) +
+  theme_minimal(base_size = 16) +
+  theme(legend.position = "bottom")
+#> Warning: Removed 13 rows containing missing values (`geom_segment()`).
 ```
 
 <div class="figure">
@@ -187,70 +192,22 @@ Event-study plot with example data
 ### Comparison to TWFE
 
 ``` r
-
 # TWFE
-twfe <- fixest::feols(dep_var ~ i(rel_year, ref=c(-1, Inf)) | unit + year, data = df_het) 
+twfe <- fixest::feols(dep_var ~ i(rel_year, ref = c(-1, Inf)) | unit + year, data = df_het)
 
-twfe_est = broom::tidy(twfe)
+twfe_est <- broom::tidy(twfe)
 
-twfe_est = twfe_est |> 
-  DT(grepl(term, "rel_year::")) |>
-  DT(, .(rel_year = term, estimate, std.error)) |> 
+twfe_est <- twfe_est |>
+  DT(grepl("rel_year::", term)) |>
+  DT(, .(rel_year = term, estimate, std.error)) |>
   DT(, let(
     rel_year = as.numeric(gsub("rel_year::", "", rel_year)),
     ci_lower = estimate - 1.96 * std.error,
     ci_upper = estimate + 1.96 * std.error,
     group = "TWFE Estimate"
   )) |>
-  DT(rel_year <= 8 & rel_year >= -8, ) |> 
-  DT(, rel_year := rel_year - 0.1)
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
-
-#> Warning in grepl(term, "rel_year::"): argument 'pattern' has length > 1 and only
-#> the first element will be used
+  DT(rel_year >= -5 & rel_year <= 7, ) |>
+  DT(, rel_year := rel_year + 0.1)
 
 # Add TWFE Points
 both_pts <- rbind(pts, twfe_est, fill = TRUE)
@@ -258,23 +215,25 @@ both_pts <- rbind(pts, twfe_est, fill = TRUE)
 max_y <- max(pts$estimate)
 
 ggplot() +
-    # 0 effect
-    geom_hline(yintercept = 0, linetype = "dashed") +
-    geom_vline(xintercept = -0.5, linetype = "dashed") +
-    # Confidence Intervals
-    geom_linerange(data = both_pts, mapping = aes(x = rel_year, ymin = ci_lower, ymax = ci_upper), color = "grey30") +
-    # Estimates
-    geom_point(data = both_pts, mapping = aes(x = rel_year, y = estimate, color = group), size = 2) +
-    # Label
-    geom_label(data = data.frame(x = -0.5 - 0.1, y = max_y + 0.25, label = "Treatment Starts ▶"), label.size=NA,
-               mapping = aes(x = x, y = y, label = label), size = 5.5, hjust = 1, fontface = 2, inherit.aes = FALSE) +
-    scale_x_continuous(breaks = -8:8, minor_breaks = NULL) +
-    scale_y_continuous(minor_breaks = NULL) +
-    scale_color_manual(values = c("DID Imputation Estimate" = "steelblue", "True Effect" = "#b44682", "TWFE Estimate" = "#82b446")) +
-    labs(x = "Relative Time", y = "Estimate", color = NULL, title = NULL) +
-    theme_minimal(base_size = 16) +
-    theme(legend.position = "bottom")
-#> Warning: Removed 17 rows containing missing values (`geom_segment()`).
+  # 0 effect
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_vline(xintercept = -0.5, linetype = "dashed") +
+  # Confidence Intervals
+  geom_linerange(data = both_pts, mapping = aes(x = rel_year, ymin = ci_lower, ymax = ci_upper), color = "grey30") +
+  # Estimates
+  geom_point(data = both_pts, mapping = aes(x = rel_year, y = estimate, color = group), size = 2) +
+  # Label
+  geom_label(
+    data = data.frame(x = -0.5 - 0.1, y = max_y + 0.25, label = "Treatment Starts ▶"), label.size = NA,
+    mapping = aes(x = x, y = y, label = label), size = 5.5, hjust = 1, fontface = 2, inherit.aes = FALSE
+  ) +
+  scale_x_continuous(breaks = -8:8, minor_breaks = NULL) +
+  scale_y_continuous(minor_breaks = NULL) +
+  scale_color_manual(values = c("DID Imputation Estimate" = "steelblue", "True Effect" = "#b44682", "TWFE Estimate" = "#82b446")) +
+  labs(x = "Relative Time", y = "Estimate", color = NULL, title = NULL) +
+  theme_minimal(base_size = 16) +
+  theme(legend.position = "bottom")
+#> Warning: Removed 13 rows containing missing values (`geom_segment()`).
 ```
 
 <div class="figure">
