@@ -140,8 +140,7 @@ did_imputation <- function(data, yname, gname, tname, idname,
       for(e in horizon[horizon >= 0]) {
         data[,
           paste0("zz000wtr", e) := 
-            ifelse(is.na(zz000event_time), 0, 1 * (zz000event_time == e)),
-          env = list(e = e)
+            ifelse(is.na(zz000event_time), 0, 1 * (zz000event_time == e))
         ]
       }
     } else {
