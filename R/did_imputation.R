@@ -40,7 +40,7 @@
 #'   If `wtr` and `horizon` are null, then the static treatment effect is calculated.
 #' @param pretrends Integer vector or `TRUE`. Which pretrends to estimate.
 #'   If `TRUE`, all `pretrends` are used.
-#' @param cluster_var String. Varaible name for clustering groups. If not
+#' @param cluster_var String. Variable name for clustering groups. If not
 #'   supplied, then `idname` is used as default.
 #'
 #' @return A `data.frame` containing treatment effect term, estimate, standard
@@ -236,8 +236,8 @@ did_imputation <- function(data, yname, gname, tname, idname,
   Z0 = copy(Z)
   Z0 = Z0[which(data$zz000treat == 0),]
 
-  Z1_wtr = MatrixExtra::crossprod(Z1, wtr_mat)
-  S_Z0Z0 = MatrixExtra::crossprod(Z0)
+  Z1_wtr = Matrix::crossprod(Z1, wtr_mat)
+  S_Z0Z0 = Matrix::crossprod(Z0)
 
   v_star <- -1 * Z %*% Matrix::solve(S_Z0Z0, Z1_wtr)
 
@@ -250,7 +250,6 @@ did_imputation <- function(data, yname, gname, tname, idname,
 
   ses <- lapply(yvars, function(yvar) {
       data$zz000adj = data[[paste0("zz000adj_", yvar)]]
-      
       se_inner(data, v_star, wtr, cluster_var, gname)
     }) |>
     rbindlist(idcol = "lhs")
@@ -280,7 +279,7 @@ did_imputation <- function(data, yname, gname, tname, idname,
     }
 
     pre_est <- fixest::feols(
-      pre_formula, data[data$zz000treat == 0, ],
+      pre_formula, data[data$zz000treat == 0, ], cluster = cluster_var,
       weights = ~zz000weight, warn = FALSE, notes = FALSE
     )
   }
