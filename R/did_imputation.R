@@ -303,7 +303,7 @@ did_imputation <- function(data, yname, gname, tname, idname,
 
   if (!is.null(pretrends) & !all(pretrends == FALSE)) {
     if (length(yvars) == 1) {
-      pre_out = pre_est$coeftable
+      pre_out = as.data.frame(pre_est$coeftable)
       pre_out$term = names(pre_est$coefficients)
       pre_out$lhs <- yvars
       setDT(pre_out)
