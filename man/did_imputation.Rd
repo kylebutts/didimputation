@@ -131,7 +131,7 @@ Or you can use relative-treatment indicators to estimate an event study estimate
 Here's an example using data from Cheng and Hoekstra (2013)
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{# Castle Data
-castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
+castle = haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 
 did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
               first_stage = ~ 0 | sid + year,
