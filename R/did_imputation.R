@@ -12,7 +12,7 @@
 #'   treated observations hat(Y_it(0)). The difference between treated and
 #'   predicted untreated outcomes Y_it(1) - hat(Y_it(0)) serves as an estimate
 #'   for the treatment effect for unit i in period t. These are then averaged to
-#'   form average treatment effects for groups of {it}.
+#'   form average treatment effects for groups of (i, t).
 #'
 #' @import fixest
 #' @import data.table
@@ -79,14 +79,14 @@
 #'
 #' ```{r, comment = "#>", collapse = TRUE}
 #' # Castle Data
-#' castle <- haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
+#' castle = haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
 #'
 #' did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
 #'               first_stage = ~ 0 | sid + year,
 #'               tname = "year", idname = "sid")
 #' ```
 #'
-did_imputation <- function(
+did_imputation = function(
   data,
   yname,
   gname,
@@ -106,16 +106,16 @@ did_imputation <- function(
 
   # Extract first stage vars from formula
   if (is.null(first_stage)) {
-    first_stage <- paste0("0 | ", idname, " + ", tname)
+    first_stage = paste0("0 | ", idname, " + ", tname)
   } else if (inherits(first_stage, "formula")) {
-    first_stage <- as.character(first_stage)[[2]]
+    first_stage = as.character(first_stage)[[2]]
   }
 
   # Formula for fitting the first stage
-  formula <- stats::as.formula(paste0(yname, " ~ ", first_stage))
+  formula = stats::as.formula(paste0(yname, " ~ ", first_stage))
 
   # make local copy of data, convert to data.table
-  data <- copy(data) |> setDT()
+  data = setDT(copy(data))
 
   # Treatment indicator
   data$zz000treat = 1 * (data[[tname]] >= data[[gname]]) * (data[[gname]] > 0)
@@ -131,7 +131,7 @@ did_imputation <- function(
   )
 
   # Get list of event_time
-  event_time <- data[is.finite(zz000event_time), unique(zz000event_time)]
+  event_time = data[is.finite(zz000event_time), unique(zz000event_time)]
 
   # horizon/allhorizon options
   if (is.null(wtr)) {
@@ -141,16 +141,16 @@ did_imputation <- function(
 
       # allhorizons
       if (all(horizon == TRUE)) {
-        horizon <- event_time
+        horizon = event_time
       }
 
       # Create wtr of horizons
-      wtr <- paste0("zz000wtr", horizon[horizon >= 0])
+      wtr = paste0("zz000wtr", horizon[horizon >= 0])
       for (e in horizon[horizon >= 0]) {
         data[[paste0("zz000wtr", e)]] = +(data$zz000event_time == e)
       }
     } else {
-      wtr <- "zz000wtrtreat"
+      wtr = "zz000wtrtreat"
       data[[wtr]] = +(data$zz000treat == 1)
     }
   }
@@ -165,7 +165,7 @@ did_imputation <- function(
   # First Stage estimate -------------------------------------------------------
 
   # Estimate Y(0) using untreated observations
-  first_stage_est <- fixest::feols(
+  first_stage_est = fixest::feols(
     formula,
     se = "standard",
     data[zz000treat == 0, ],
@@ -175,9 +175,8 @@ did_imputation <- function(
   )
 
   if (inherits(first_stage_est, "fixest_multi")) {
-    yvars = lapply(first_stage_est, \(est) est$model_info$lhs) |>
-      unlist() |>
-      unname()
+    yvars = lapply(first_stage_est, \(est) est$model_info$lhs)
+    yvars = unname(unlist(yvars))
   } else {
     yvars = as.character(stats::terms(formula)[1][[2]])
   }
@@ -196,12 +195,12 @@ did_imputation <- function(
   }
 
   # drop anything with missing values of the residualized outcome
-  todrop <- apply(
+  todrop = apply(
     is.na(data[, paste("zz000adj", yvars, sep = "_"), with = F]),
     MARGIN = 1,
     FUN = any
   )
-  data <- data[!todrop, ]
+  data = data[!todrop, ]
 
   # Multiply treatment weights * weights vector
   data[, (wtr) := lapply(.SD, function(x) x * zz000weight), .SDcols = wtr]
@@ -217,18 +216,18 @@ did_imputation <- function(
       lapply(.SD, function(x) sum(x * zz000adj)),
       .SDcols = wtr
     ]
-  }) |>
-    data.table::rbindlist(idcol = "lhs")
+  })
+  ests = data.table::rbindlist(ests, idcol = "lhs")
 
   # Standard Errors ------------------------------------------------------------
   if (length(yvars) == 1) {
-    Z <- fixest::sparse_model_matrix(
+    Z = fixest::sparse_model_matrix(
       first_stage_est,
       data = data,
       type = c("rhs", "fixef")
     )
   } else {
-    Z <- fixest::sparse_model_matrix(
+    Z = fixest::sparse_model_matrix(
       first_stage_est[[1]],
       data = data,
       type = c("rhs", "fixef")
@@ -252,33 +251,33 @@ did_imputation <- function(
   Z1_wtr = Matrix::crossprod(Z1, wtr_mat)
   S_Z0Z0 = Matrix::crossprod(Z0)
 
-  v_star <- -1 * Z %*% Matrix::solve(S_Z0Z0, Z1_wtr)
+  v_star = -1 * Z %*% Matrix::solve(S_Z0Z0, Z1_wtr)
 
   # fix v_it^* = w for treated observations
-  v_star[data$zz000treat == 1, ] <-
+  v_star[data$zz000treat == 1, ] =
     as.matrix(data[data$zz000treat == 1, wtr, with = FALSE])
 
   # If no cluster_var, then use idname
   if (is.null(cluster_var)) {
-    cluster_var <- idname
+    cluster_var = idname
   }
 
-  ses <- lapply(yvars, function(yvar) {
+  ses = lapply(yvars, function(yvar) {
     data$zz000adj = data[[paste0("zz000adj_", yvar)]]
     se_inner(data, v_star, wtr, cluster_var, gname)
-  }) |>
-    rbindlist(idcol = "lhs")
+  })
+  ses = rbindlist(ses, idcol = "lhs")
 
   # Pre-event Estimates --------------------------------------------------------
 
   if (!is.null(pretrends) & !all(pretrends == FALSE)) {
     if (all(pretrends == TRUE)) {
-      pre_formula <- stats::as.formula(
+      pre_formula = stats::as.formula(
         paste0(yname, " ~ i(zz000event_time) + ", first_stage)
       )
     } else {
       if (all(pretrends %in% event_time)) {
-        pre_formula <- stats::as.formula(
+        pre_formula = stats::as.formula(
           paste0(
             yname,
             " ~ i(zz000event_time, keep = c(",
@@ -295,7 +294,7 @@ did_imputation <- function(
       }
     }
 
-    pre_est <- fixest::feols(
+    pre_est = fixest::feols(
       pre_formula,
       data[data$zz000treat == 0, ],
       cluster = cluster_var,
@@ -306,20 +305,20 @@ did_imputation <- function(
   }
 
   # Create dataframe of results in tidy format ---------------------------------
-  ests <- data.table::melt(
+  ests = data.table::melt(
     ests,
     id.vars = "lhs",
     variable.name = "term",
     value.name = "estimate"
   )
-  ses <- data.table::melt(
+  ses = data.table::melt(
     ses,
     id.vars = "lhs",
     variable.name = "term",
     value.name = "std.error"
   )
 
-  out <- merge(ests, ses, by = c("lhs", "term"))
+  out = merge(ests, ses, by = c("lhs", "term"))
 
   out$term = gsub("zz000wtr", "", out$term)
   out$conf.low = out$estimate - 1.96 * out$std.error
@@ -329,7 +328,7 @@ did_imputation <- function(
     if (length(yvars) == 1) {
       pre_out = pre_est$coeftable
       pre_out = as.data.table(pre_out, keep.rownames = "term")
-      pre_out$lhs <- yvars
+      pre_out$lhs = yvars
       setnames(
         pre_out,
         c("term", "estimate", "std.error", "t_value", "p_value", "lhs")
@@ -352,7 +351,7 @@ did_imputation <- function(
     pre_out$conf.low = pre_out$estimate - 1.96 * pre_out$std.error
     pre_out$conf.high = pre_out$estimate + 1.96 * pre_out$std.error
 
-    pre_out <- pre_out[, c(
+    pre_out = pre_out[, c(
       "lhs",
       "term",
       "estimate",
@@ -361,7 +360,7 @@ did_imputation <- function(
       "conf.high"
     )]
 
-    out <- rbind(pre_out, out)
+    out = rbind(pre_out, out)
   }
 
   if (all(wtr != "zz000wtrtreat")) {
@@ -376,12 +375,12 @@ did_imputation <- function(
 }
 
 
-se_inner <- function(data, v_star, wtr, cluster_var, gname) {
+se_inner = function(data, v_star, wtr, cluster_var, gname) {
   # CRAN Errors
   zz000adj = zz000treat = NULL
 
-  vcols <- paste0("zz000v", seq_along(wtr))
-  tcols <- paste0("zz000tau_et", seq_along(wtr))
+  vcols = paste0("zz000v", seq_along(wtr))
+  tcols = paste0("zz000tau_et", seq_along(wtr))
 
   # Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
   for (i in seq_along(vcols)) {
@@ -409,7 +408,7 @@ se_inner <- function(data, v_star, wtr, cluster_var, gname) {
 
   # Equation (8)
   # Calculate variance of estimate
-  result <- data[,
+  result = data[,
     lapply(seq_along(vcols), function(idx) {
       sum(.SD[[vcols[idx]]] * .SD[[tcols[idx]]])^2
     }),

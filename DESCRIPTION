@@ -7,7 +7,7 @@ Authors@R:
       given = "Kyle",
       family = "Butts",
       role = c("aut", "cre"),
-      email = "kyle.butts@colorado.edu",
+      email = "buttskyle96@gmail.com",
       comment = c(ORCID = "0000-0002-9048-8059")
     ))
 Description: Estimates Two-way Fixed Effects difference-in-differences/event-study models using the imputation-based approach proposed by Borusyak, Jaravel, and Spiess (2021).
@@ -16,14 +16,11 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends: 
-    R (>= 2.10),
+    R (>= 4.1.0),
     fixest (>= 0.13.2),
     data.table (>= 1.10.0)
 Imports: 
-    fixest (>= 0.10.0),
-    data.table (>= 1.10.0),
-    Matrix,
-    MatrixExtra
+    Matrix
 Suggests: 
     haven,
     testthat (>= 3.0.0)

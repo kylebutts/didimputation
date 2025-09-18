@@ -71,7 +71,7 @@ Y(0) using untreated/not-yet-treated observations and predicts Y(0) for the
 treated observations hat(Y_it(0)). The difference between treated and
 predicted untreated outcomes Y_it(1) - hat(Y_it(0)) serves as an estimate
 for the treatment effect for unit i in period t. These are then averaged to
-form average treatment effects for groups of {it}.
+form average treatment effects for groups of (i, t).
 }
 \section{Examples}{
 
