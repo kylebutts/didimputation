@@ -2,4 +2,6 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^R/dev-*\.R$
+^R/dev.R$
+^dev.R$
 ^README\.Rmd$

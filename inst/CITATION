@@ -4,15 +4,22 @@ PKG <- "didimputation"
 vers <- paste("R package version", meta$Version)
 # url <- paste0("https://CRAN.R-project.org/package=", PKG)
 
-citEntry(entry	= "Manual",
-	 title	= "didimputation: Difference-in-Differences estimator from Borusyak, Jaravel, and Spiess (2021)",
-	 author = c(
-         person("Kyle", "Butts", email="kyle.butts@colorado.edu",
-                role = c("aut", "cre")
-               )
-         ),
-	 year = 2021,
-     url = "https://github.com/kylebutts/didimputation",
-	 textVersion = paste0(
-             "Butts, Kyle (2021).  didimputation: Difference-in-Differences estimator from Borusyak, Jaravel, and Spiess (2021)", vers, ".")
-         )
+citEntry(
+  entry = "Manual",
+  title = "didimputation: Difference-in-Differences estimator from Borusyak, Jaravel, and Spiess (2021)",
+  author = c(
+    person(
+      "Kyle",
+      "Butts",
+      email = "kyle.butts@colorado.edu",
+      role = c("aut", "cre")
+    )
+  ),
+  year = 2021,
+  url = "https://github.com/kylebutts/didimputation",
+  textVersion = paste0(
+    "Butts, Kyle (2021).  didimputation: Difference-in-Differences estimator from Borusyak, Jaravel, and Spiess (2021)",
+    vers,
+    "."
+  )
+)

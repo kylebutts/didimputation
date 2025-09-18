@@ -86,10 +86,19 @@
 #'               tname = "year", idname = "sid")
 #' ```
 #'
-did_imputation <- function(data, yname, gname, tname, idname, 
-  first_stage = NULL, wname = NULL, wtr = NULL, horizon = NULL,
-  pretrends = NULL, cluster_var = NULL) {
-
+did_imputation <- function(
+  data,
+  yname,
+  gname,
+  tname,
+  idname,
+  first_stage = NULL,
+  wname = NULL,
+  wtr = NULL,
+  horizon = NULL,
+  pretrends = NULL,
+  cluster_var = NULL
+) {
   # CRAN Errors
   zz000treat = zz000event_time = zz000weight = zz000adj = zz000treat = NULL
 
@@ -126,27 +135,23 @@ did_imputation <- function(data, yname, gname, tname, idname,
 
   # horizon/allhorizon options
   if (is.null(wtr)) {
-
     # event-study
     if (!is.null(horizon)) {
       # create event time weights
 
       # allhorizons
-      if (all(horizon == TRUE)) horizon <- event_time
+      if (all(horizon == TRUE)) {
+        horizon <- event_time
+      }
 
       # Create wtr of horizons
       wtr <- paste0("zz000wtr", horizon[horizon >= 0])
-
-      for(e in horizon[horizon >= 0]) {
-        data[,
-          paste0("zz000wtr", e) := 
-            ifelse(is.na(zz000event_time), 0, 1 * (zz000event_time == e)),
-          env = list(e = e)
-        ]
+      for (e in horizon[horizon >= 0]) {
+        data[[paste0("zz000wtr", e)]] = +(data$zz000event_time == e)
       }
     } else {
       wtr <- "zz000wtrtreat"
-      data[, (wtr) := 1 * (zz000treat == 1)]
+      data[[wtr]] = +(data$zz000treat == 1)
     }
   }
 
@@ -165,11 +170,14 @@ did_imputation <- function(data, yname, gname, tname, idname,
     se = "standard",
     data[zz000treat == 0, ],
     weights = ~zz000weight,
-    warn = FALSE, notes = FALSE
+    warn = FALSE,
+    notes = FALSE
   )
 
-  if(inherits(first_stage_est, "fixest_multi")) {
-    yvars = lapply(first_stage_est, \(est) est$model_info$lhs) |> unlist()
+  if (inherits(first_stage_est, "fixest_multi")) {
+    yvars = lapply(first_stage_est, \(est) est$model_info$lhs) |>
+      unlist() |>
+      unname()
   } else {
     yvars = as.character(stats::terms(formula)[1][[2]])
   }
@@ -177,12 +185,12 @@ did_imputation <- function(data, yname, gname, tname, idname,
 
   # Residualize outcome variable(s)
   if (length(yvars) == 1) {
-    data[[paste0("zz000adj_", yvars)]] = 
+    data[[paste0("zz000adj_", yvars)]] =
       data[[yvars]] - stats::predict(first_stage_est, newdata = data)
   } else {
-    for(est in first_stage_est) {
+    for (est in first_stage_est) {
       yvar = est$model_info$lhs
-      data[[paste0("zz000adj_", yvar)]] = 
+      data[[paste0("zz000adj_", yvar)]] =
         data[[yvar]] - stats::predict(est, newdata = data)
     }
   }
@@ -195,13 +203,11 @@ did_imputation <- function(data, yname, gname, tname, idname,
   )
   data <- data[!todrop, ]
 
-
   # Multiply treatment weights * weights vector
-  data[, (wtr) := lapply(.SD, function(x) x * zz000weight), .SDcols = wtr] 
+  data[, (wtr) := lapply(.SD, function(x) x * zz000weight), .SDcols = wtr]
   data[is.na(zz000weight), (wtr) := 0]
   # Normalize
-  data[, (wtr) := lapply(.SD, function(x) x / sum(x)), .SDcols = wtr] 
-
+  data[, (wtr) := lapply(.SD, function(x) x / sum(x)), .SDcols = wtr]
 
   # Point estimate for wtr
   ests = lapply(yvars, function(yvar) {
@@ -211,30 +217,37 @@ did_imputation <- function(data, yname, gname, tname, idname,
       lapply(.SD, function(x) sum(x * zz000adj)),
       .SDcols = wtr
     ]
-  }) |> 
+  }) |>
     data.table::rbindlist(idcol = "lhs")
-
 
   # Standard Errors ------------------------------------------------------------
   if (length(yvars) == 1) {
-    Z <- did2s_sparse(data, first_stage_est)
+    Z <- fixest::sparse_model_matrix(
+      first_stage_est,
+      data = data,
+      type = c("rhs", "fixef")
+    )
   } else {
-    Z <- did2s_sparse(data, first_stage_est[[1]])
+    Z <- fixest::sparse_model_matrix(
+      first_stage_est[[1]],
+      data = data,
+      type = c("rhs", "fixef")
+    )
   }
 
   # Equation (6) of Borusyak et. al. 2021
   # - Z (Z_0' Z_0)^{-1} Z_1' wtr_1
   Z = Z * data$zz000weight
-  wtr_mat =  Matrix::Matrix(
-    as.matrix(data[data$zz000treat == 1, wtr, with = F]),
+  wtr_mat = Matrix::Matrix(
+    as.matrix(data[data$zz000treat == 1, wtr, with = FALSE]),
     sparse = TRUE
   )
-    
+
   Z1 = copy(Z)
-  Z1 = Z1[which(data$zz000treat == 1),]
-  
+  Z1 = Z1[which(data$zz000treat == 1), ]
+
   Z0 = copy(Z)
-  Z0 = Z0[which(data$zz000treat == 0),]
+  Z0 = Z0[which(data$zz000treat == 0), ]
 
   Z1_wtr = Matrix::crossprod(Z1, wtr_mat)
   S_Z0Z0 = Matrix::crossprod(Z0)
@@ -242,18 +255,19 @@ did_imputation <- function(data, yname, gname, tname, idname,
   v_star <- -1 * Z %*% Matrix::solve(S_Z0Z0, Z1_wtr)
 
   # fix v_it^* = w for treated observations
-  v_star[data$zz000treat == 1, ] <- 
-    as.matrix(data[data$zz000treat == 1, wtr, with = F])
+  v_star[data$zz000treat == 1, ] <-
+    as.matrix(data[data$zz000treat == 1, wtr, with = FALSE])
 
   # If no cluster_var, then use idname
-  if (is.null(cluster_var)) cluster_var <- idname
+  if (is.null(cluster_var)) {
+    cluster_var <- idname
+  }
 
   ses <- lapply(yvars, function(yvar) {
-      data$zz000adj = data[[paste0("zz000adj_", yvar)]]
-      se_inner(data, v_star, wtr, cluster_var, gname)
-    }) |>
+    data$zz000adj = data[[paste0("zz000adj_", yvar)]]
+    se_inner(data, v_star, wtr, cluster_var, gname)
+  }) |>
     rbindlist(idcol = "lhs")
-
 
   # Pre-event Estimates --------------------------------------------------------
 
@@ -266,74 +280,97 @@ did_imputation <- function(data, yname, gname, tname, idname,
       if (all(pretrends %in% event_time)) {
         pre_formula <- stats::as.formula(
           paste0(
-            yname, 
-            " ~ i(zz000event_time, keep = c(", 
-            paste(pretrends, collapse = ', '), 
-            ")) + ", 
+            yname,
+            " ~ i(zz000event_time, keep = c(",
+            paste(pretrends, collapse = ', '),
+            ")) + ",
             first_stage
           )
         )
       } else {
-        stop(paste0("Pretrends not found in event_time. Event_time has values", event_time))
+        stop(paste0(
+          "Pretrends not found in event_time. Event_time has values",
+          event_time
+        ))
       }
     }
 
     pre_est <- fixest::feols(
-      pre_formula, data[data$zz000treat == 0, ], cluster = cluster_var,
-      weights = ~zz000weight, warn = FALSE, notes = FALSE
+      pre_formula,
+      data[data$zz000treat == 0, ],
+      cluster = cluster_var,
+      weights = ~zz000weight,
+      warn = FALSE,
+      notes = FALSE
     )
   }
-
 
   # Create dataframe of results in tidy format ---------------------------------
   ests <- data.table::melt(
     ests,
-    id.vars = "lhs", variable.name = "term", value.name = "estimate"
+    id.vars = "lhs",
+    variable.name = "term",
+    value.name = "estimate"
   )
   ses <- data.table::melt(
     ses,
-    id.vars = "lhs", variable.name = "term", value.name = "std.error"
+    id.vars = "lhs",
+    variable.name = "term",
+    value.name = "std.error"
   )
 
   out <- merge(ests, ses, by = c("lhs", "term"))
-  
+
   out$term = gsub("zz000wtr", "", out$term)
   out$conf.low = out$estimate - 1.96 * out$std.error
   out$conf.high = out$estimate + 1.96 * out$std.error
 
-  if (!is.null(pretrends) & !all(pretrends == FALSE)) {
+  if (!is.null(pretrends) && !all(pretrends == FALSE)) {
     if (length(yvars) == 1) {
-      pre_out = as.data.frame(pre_est$coeftable)
-      pre_out$term = names(pre_est$coefficients)
+      pre_out = pre_est$coeftable
+      pre_out = as.data.table(pre_out, keep.rownames = "term")
       pre_out$lhs <- yvars
-      setDT(pre_out)
-      setnames(pre_out, c("estimate", "std.error", "t_value", "p_value", "term", "lhs"))
+      setnames(
+        pre_out,
+        c("term", "estimate", "std.error", "t_value", "p_value", "lhs")
+      )
     } else {
       pre_out = lapply(pre_est, function(est) {
         out = est$coeftable
-        out$term = names(est$coefficients)
-        setDT(out)
+        as.data.table(out, keep.rownames = "term")
       })
       names(pre_out) = yvars
       pre_out = rbindlist(pre_out, idcol = "lhs")
-      setnames(pre_out, c("lhs", "estimate", "std.error", "t_value", "p_value", "term"))
+      setnames(
+        pre_out,
+        c("lhs", "term", "estimate", "std.error", "t_value", "p_value")
+      )
     }
 
     pre_out = pre_out[grep("zz000event_time", pre_out$term), ]
     pre_out$term = gsub("zz000event_time::", "", pre_out$term)
-    pre_out$conf.low  = pre_out$estimate - 1.96 * pre_out$std.error
+    pre_out$conf.low = pre_out$estimate - 1.96 * pre_out$std.error
     pre_out$conf.high = pre_out$estimate + 1.96 * pre_out$std.error
 
-    pre_out <- pre_out[, c("lhs", "term", "estimate", "std.error", "conf.low", "conf.high")]
+    pre_out <- pre_out[, c(
+      "lhs",
+      "term",
+      "estimate",
+      "std.error",
+      "conf.low",
+      "conf.high"
+    )]
 
     out <- rbind(pre_out, out)
   }
- 
-  if(all(wtr != "zz000wtrtreat")) {
+
+  if (all(wtr != "zz000wtrtreat")) {
     out = out[order(out$lhs, as.numeric(out$term)), ]
   }
 
-  if(length(yvars) == 1) out$lhs = NULL
+  if (length(yvars) == 1) {
+    out$lhs = NULL
+  }
 
   return(out)
 }
@@ -345,7 +382,7 @@ se_inner <- function(data, v_star, wtr, cluster_var, gname) {
 
   vcols <- paste0("zz000v", seq_along(wtr))
   tcols <- paste0("zz000tau_et", seq_along(wtr))
-  
+
   # Calculate v_it^* = - Z (Z_0' Z_0)^{-1} Z_1' * w_1
   for (i in seq_along(vcols)) {
     data[, vcols[i] := v_star[, i]]
@@ -362,26 +399,26 @@ se_inner <- function(data, v_star, wtr, cluster_var, gname) {
   ]
 
   # Recenter tau by \bar{\tau}_{et}
-  data[, 
+  data[,
     (tcols) := lapply(.SD, function(x) {
       x[is.na(x)] = 0
       zz000adj - x
-    }), 
+    }),
     .SDcols = tcols
   ]
 
   # Equation (8)
   # Calculate variance of estimate
-  result <- data[, 
+  result <- data[,
     lapply(seq_along(vcols), function(idx) {
       sum(.SD[[vcols[idx]]] * .SD[[tcols[idx]]])^2
     }),
     by = cluster_var
-  ][, 
+  ][,
     lapply(.SD, function(x) sqrt(sum(x))),
     .SDcols = paste0("V", seq_along(wtr))
-  ] 
-  
+  ]
+
   result = setnames(result, wtr)
 
   data[, c(vcols, tcols) := NULL]
