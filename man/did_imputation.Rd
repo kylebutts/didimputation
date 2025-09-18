@@ -52,7 +52,7 @@ If \code{wtr} and \code{horizon} are null, then the static treatment effect is c
 \item{pretrends}{Integer vector or \code{TRUE}. Which pretrends to estimate.
 If \code{TRUE}, all \code{pretrends} are used.}
 
-\item{cluster_var}{String. Varaible name for clustering groups. If not
+\item{cluster_var}{String. Variable name for clustering groups. If not
 supplied, then \code{idname} is used as default.}
 }
 \value{
