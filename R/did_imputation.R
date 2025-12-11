@@ -171,7 +171,8 @@ did_imputation = function(
     data[zz000treat == 0, ],
     weights = ~zz000weight,
     warn = FALSE,
-    notes = FALSE
+    notes = FALSE,
+    fixef.rm = "none"
   )
 
   if (inherits(first_stage_est, "fixest_multi")) {
@@ -300,7 +301,8 @@ did_imputation = function(
       cluster = cluster_var,
       weights = ~zz000weight,
       warn = FALSE,
-      notes = FALSE
+      notes = FALSE,
+      fixef.rm = "none"
     )
   }
 
