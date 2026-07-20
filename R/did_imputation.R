@@ -95,6 +95,9 @@ did_imputation = function(
   if (is.null(first_stage)) {
     first_stage = paste0("0 | ", idname, " + ", tname)
   } else if (inherits(first_stage, "formula")) {
+    if (length(first_stage) != 2) {
+      stop("`first_stage` must be a one-sided formula (no left-hand side)")
+    }
     first_stage = as.character(first_stage)[[2]]
   }
 
