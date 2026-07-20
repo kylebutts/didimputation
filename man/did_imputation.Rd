@@ -123,24 +123,7 @@ Or you can use relative-treatment indicators to estimate an event study estimate
 #> 20:     19 2.111984 0.11146282 1.893517  2.330451
 #> 21:     20 1.925168 0.11214206 1.705370  2.144967
 #>       term estimate  std.error conf.low conf.high
-}\if{html}{\out{</div>}}
-}
-
-\subsection{Example from Cheng and Hoekstra (2013)}{
-
-Here's an example using data from Cheng and Hoekstra (2013)
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Castle Data
-castle = haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
-
-did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
-              first_stage = ~ 0 | sid + year,
-              tname = "year", idname = "sid")
-#> Key: <lhs>
-#>           lhs   term   estimate  std.error    conf.low conf.high
-#>        <char> <char>      <num>      <num>       <num>     <num>
-#> 1:  l_assault  treat 0.04955260 0.05132258 -0.05103966 0.1501449
-#> 2: l_homicide  treat 0.07980155 0.06088398 -0.03953105 0.1991341
+#>     <char>    <num>      <num>    <num>     <num>
 }\if{html}{\out{</div>}}
 }
 }

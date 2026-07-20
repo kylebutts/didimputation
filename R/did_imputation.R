@@ -54,7 +54,6 @@
 #' Load example dataset which has two treatment groups and homogeneous treatment effects
 #'
 #' ```{r, comment = "#>", collapse = TRUE}
-#' # Load Example Dataset
 #' data("df_hom", package="didimputation")
 #' ```
 #' ### Static TWFE
@@ -73,18 +72,6 @@
 #'                tname = "year", idname = "unit", horizon=TRUE)
 #' ```
 #'
-#' ### Example from Cheng and Hoekstra (2013)
-#'
-#' Here's an example using data from Cheng and Hoekstra (2013)
-#'
-#' ```{r, comment = "#>", collapse = TRUE}
-#' # Castle Data
-#' castle = haven::read_dta("https://github.com/scunning1975/mixtape/raw/master/castle.dta")
-#'
-#' did_imputation(data = castle, yname = "c(l_homicide, l_assault)", gname = "effyear",
-#'               first_stage = ~ 0 | sid + year,
-#'               tname = "year", idname = "sid")
-#' ```
 #'
 did_imputation = function(
   data,
