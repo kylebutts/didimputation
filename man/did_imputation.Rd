@@ -50,7 +50,17 @@ If \code{TRUE}, all horizons are used.
 If \code{wtr} and \code{horizon} are null, then the static treatment effect is calculated.}
 
 \item{pretrends}{Integer vector or \code{TRUE}. Which pretrends to estimate.
-If \code{TRUE}, all \code{pretrends} are used.}
+If \code{TRUE}, all \code{pretrends} are used.
+
+\code{pretrends} is used exclusively to perform a pre-trends test and does not
+affect the main estimation. It runs a separate OLS regression, as suggested
+by Borusyak, Jaravel, and Spiess (2024, Section 4.4, Test 1). This
+regression estimates deviations for each event time specified in
+\code{pretrends} relative to a reference period and the never-treated group. The
+reference period consists of all pre-treatment event times omitted from
+\code{pretrends}. To maintain full control over the reference period, avoid
+specifying all pre-treatment periods in \code{pretrends}. The pre-treatment
+estimates in the output are from this regression.}
 
 \item{cluster_var}{String. Variable name for clustering groups. If not
 supplied, then \code{idname} is used as default.}
@@ -78,8 +88,7 @@ form average treatment effects for groups of (i, t).
 
 Load example dataset which has two treatment groups and homogeneous treatment effects
 
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{# Load Example Dataset
-data("df_hom", package="didimputation")
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{data("df_hom", package="didimputation")
 }\if{html}{\out{</div>}}
 \subsection{Static TWFE}{
 
@@ -123,7 +132,6 @@ Or you can use relative-treatment indicators to estimate an event study estimate
 #> 20:     19 2.111984 0.11146282 1.893517  2.330451
 #> 21:     20 1.925168 0.11214206 1.705370  2.144967
 #>       term estimate  std.error conf.low conf.high
-#>     <char>    <num>      <num>    <num>     <num>
 }\if{html}{\out{</div>}}
 }
 }

@@ -40,6 +40,16 @@
 #'   If `wtr` and `horizon` are null, then the static treatment effect is calculated.
 #' @param pretrends Integer vector or `TRUE`. Which pretrends to estimate.
 #'   If `TRUE`, all `pretrends` are used.
+#'
+#'   `pretrends` is used exclusively to perform a pre-trends test and does not
+#'   affect the main estimation. It runs a separate OLS regression, as suggested
+#'   by Borusyak, Jaravel, and Spiess (2024, Section 4.4, Test 1). This
+#'   regression estimates deviations for each event time specified in
+#'   `pretrends` relative to a reference period and the never-treated group. The
+#'   reference period consists of all pre-treatment event times omitted from
+#'   `pretrends`. To maintain full control over the reference period, avoid
+#'   specifying all pre-treatment periods in `pretrends`. The pre-treatment
+#'   estimates in the output are from this regression.
 #' @param cluster_var String. Variable name for clustering groups. If not
 #'   supplied, then `idname` is used as default.
 #'
@@ -263,8 +273,12 @@ did_imputation = function(
 
   if (!is.null(pretrends) & !all(pretrends == FALSE)) {
     if (all(pretrends == TRUE)) {
+      event_time_ref = min(event_time[is.finite(event_time) & event_time < 0])
       pre_formula = stats::as.formula(
-        paste0(yname, " ~ i(zz000event_time) + ", first_stage)
+        paste0(
+          yname, " ~ i(zz000event_time, ref = c(-Inf, ", event_time_ref,
+          ")) + ", first_stage
+        )
       )
     } else {
       if (all(pretrends %in% event_time)) {
