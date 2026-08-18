@@ -17,10 +17,10 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Depends: 
     R (>= 3.5.0),
+Imports: 
+    Matrix,
     fixest (>= 0.13.2),
     data.table (>= 1.10.0)
-Imports: 
-    Matrix
 Suggests: 
     haven,
     testthat (>= 3.0.0)
