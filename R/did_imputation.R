@@ -197,7 +197,7 @@ did_imputation = function(
 
   # drop anything with missing values of the residualized outcome
   todrop = apply(
-    is.na(data[, paste("zz000adj", yvars, sep = "_"), with = F]),
+    is.na(data[, paste("zz000adj", yvars, sep = "_"), with = FALSE]),
     MARGIN = 1,
     FUN = any
   )
