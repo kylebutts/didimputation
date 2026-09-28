@@ -236,27 +236,31 @@ did_imputation = function(
   }
 
   # Equation (6) of Borusyak et. al. 2021
-  # - Z (Z_0' Z_0)^{-1} Z_1' wtr_1
-  Z = Z * data$zz000weight
   wtr_mat = Matrix::Matrix(
     as.matrix(data[data$zz000treat == 1, wtr, with = FALSE]),
     sparse = TRUE
   )
 
-  Z1 = copy(Z)
-  Z1 = Z1[which(data$zz000treat == 1), ]
-
-  Z0 = copy(Z)
-  Z0 = Z0[which(data$zz000treat == 0), ]
+  # The first-stage design is unweighted here: estimation weights enter the 
+  # untreated Gram matrix once, and the resulting untreated influence weights 
+  # once more below. 
+  # See https://github.com/kylebutts/didimputation/issues/33
+  treated = data$zz000treat == 1
+  untreated = !treated
+  Z1 = Z[treated, ]
+  Z0 = Z[untreated, ]
+  omega0 = data$zz000weight[untreated]
+  omega0[is.na(omega0)] = 0
 
   Z1_wtr = Matrix::crossprod(Z1, wtr_mat)
-  S_Z0Z0 = Matrix::crossprod(Z0)
+  weighted_Z0 = Matrix::Diagonal(x = omega0) %*% Z0
+  S_Z0Z0 = Matrix::crossprod(Z0, weighted_Z0)
 
   v_star = -1 * Z %*% Matrix::solve(S_Z0Z0, Z1_wtr)
+  v_star[untreated, ] = v_star[untreated, , drop = FALSE] * omega0
 
   # fix v_it^* = w for treated observations
-  v_star[data$zz000treat == 1, ] =
-    as.matrix(data[data$zz000treat == 1, wtr, with = FALSE])
+  v_star[treated, ] = as.matrix(data[treated, wtr, with = FALSE])
 
   # If no cluster_var, then use idname
   if (is.null(cluster_var)) {
