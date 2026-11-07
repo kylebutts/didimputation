@@ -15,7 +15,8 @@ did_imputation(
   wtr = NULL,
   horizon = NULL,
   pretrends = NULL,
-  cluster_var = NULL
+  cluster_var = NULL,
+  leaveout = FALSE
 )
 }
 \arguments{
@@ -64,6 +65,12 @@ estimates in the output are from this regression.}
 
 \item{cluster_var}{String. Variable name for clustering groups. If not
 supplied, then \code{idname} is used as default.}
+
+\item{leaveout}{Logical. If \code{TRUE}, the treatment-effect averages used for
+the standard errors exclude the observation's own cluster (the leave-out
+variance of Borusyak, Jaravel, and Spiess, Supplementary Appendix A.9,
+and the \code{leaveout} option of their Stata command). Recommended when some
+cohorts are small. Default is \code{FALSE}.}
 }
 \value{
 A \code{data.frame} containing treatment effect term, estimate, standard
