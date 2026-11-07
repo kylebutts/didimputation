@@ -139,6 +139,7 @@ Or you can use relative-treatment indicators to estimate an event study estimate
 #> 20:     19 2.111984 0.11146282 1.893517  2.330451
 #> 21:     20 1.925168 0.11214206 1.705370  2.144967
 #>       term estimate  std.error conf.low conf.high
+#>     <char>    <num>      <num>    <num>     <num>
 }\if{html}{\out{</div>}}
 }
 }
