@@ -15,7 +15,8 @@ did_imputation(
   wtr = NULL,
   horizon = NULL,
   pretrends = NULL,
-  cluster_var = NULL
+  cluster_var = NULL,
+  leaveout = FALSE
 )
 }
 \arguments{
@@ -64,6 +65,12 @@ estimates in the output are from this regression.}
 
 \item{cluster_var}{String. Variable name for clustering groups. If not
 supplied, then \code{idname} is used as default.}
+
+\item{leaveout}{Logical. If \code{TRUE}, the treatment-effect averages used for
+the standard errors exclude the observation's own cluster (the leave-out
+variance of Borusyak, Jaravel, and Spiess, Supplementary Appendix A.9,
+and the \code{leaveout} option of their Stata command). Recommended when some
+cohorts are small. Default is \code{FALSE}.}
 }
 \value{
 A \code{data.frame} containing treatment effect term, estimate, standard
@@ -132,6 +139,7 @@ Or you can use relative-treatment indicators to estimate an event study estimate
 #> 20:     19 2.111984 0.11146282 1.893517  2.330451
 #> 21:     20 1.925168 0.11214206 1.705370  2.144967
 #>       term estimate  std.error conf.low conf.high
+#>     <char>    <num>      <num>    <num>     <num>
 }\if{html}{\out{</div>}}
 }
 }

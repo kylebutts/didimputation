@@ -52,6 +52,11 @@
 #'   estimates in the output are from this regression.
 #' @param cluster_var String. Variable name for clustering groups. If not
 #'   supplied, then `idname` is used as default.
+#' @param leaveout Logical. If `TRUE`, the treatment-effect averages used for
+#'   the standard errors exclude the observation's own cluster (the leave-out
+#'   variance of Borusyak, Jaravel, and Spiess, Supplementary Appendix A.9,
+#'   and the `leaveout` option of their Stata command). Recommended when some
+#'   cohorts are small. Default is `FALSE`.
 #'
 #' @return A `data.frame` containing treatment effect term, estimate, standard
 #'   error and confidence interval. This is in `tidy` format.
@@ -94,7 +99,8 @@ did_imputation = function(
   wtr = NULL,
   horizon = NULL,
   pretrends = NULL,
-  cluster_var = NULL
+  cluster_var = NULL,
+  leaveout = FALSE
 ) {
   # CRAN Errors
   zz000treat = zz000event_time = zz000weight = zz000adj = zz000treat = NULL
@@ -269,7 +275,7 @@ did_imputation = function(
 
   ses = lapply(yvars, function(yvar) {
     data$zz000adj = data[[paste0("zz000adj_", yvar)]]
-    se_inner(data, v_star, wtr, cluster_var, gname)
+    se_inner(data, v_star, wtr, cluster_var, gname, leaveout)
   })
   ses = rbindlist(ses, idcol = "lhs")
 
@@ -385,7 +391,7 @@ did_imputation = function(
 }
 
 
-se_inner = function(data, v_star, wtr, cluster_var, gname) {
+se_inner = function(data, v_star, wtr, cluster_var, gname, leaveout = FALSE) {
   # CRAN Errors
   zz000adj = zz000treat = NULL
 
@@ -415,6 +421,58 @@ se_inner = function(data, v_star, wtr, cluster_var, gname) {
     }),
     .SDcols = tcols
   ]
+
+  # Leave-out: exclude own cluster from \bar{\tau}_{et}
+  if (leaveout) {
+    ccols = paste0("zz000cw", seq_along(wtr))
+    dcols = paste0("zz000den", seq_along(wtr))
+
+    # c = sum of v_it^* in the cluster and cell
+    data[,
+      (ccols) := lapply(.SD, function(x) sum(x) * zz000treat),
+      by = c(cluster_var, gname, "zz000event_time"),
+      .SDcols = vcols
+    ]
+    # D = sum of c * v_it^* over the cell
+    data[,
+      (dcols) := lapply(seq_along(vcols), function(idx) {
+        sum(.SD[[ccols[idx]]] * .SD[[vcols[idx]]])
+      }),
+      by = c(gname, "zz000event_time"),
+      .SDcols = c(ccols, vcols)
+    ]
+
+    for (idx in seq_along(wtr)) {
+      n_alone = sum(
+        data$zz000treat == 1 & data[[dcols[idx]]] > 0 &
+          data[[ccols[idx]]]^2 / data[[dcols[idx]]] > 0.99999
+      )
+      if (n_alone > 0) {
+        stop(
+          "Cannot compute leave-out standard errors for term `",
+          gsub("zz000wtr", "", wtr[idx]), "`: ", n_alone,
+          " treated observation(s) are the only cluster in their cohort x ",
+          "event-time cell.",
+          call. = FALSE
+        )
+      }
+    }
+
+    # Scale tau_it - \bar{\tau}_{et} by D / (D - c^2)
+    data[,
+      (tcols) := lapply(seq_along(tcols), function(idx) {
+        x = .SD[[tcols[idx]]]
+        d = .SD[[dcols[idx]]]
+        cw = .SD[[ccols[idx]]]
+        fix = zz000treat == 1 & d > 0
+        x[fix] = x[fix] * d[fix] / (d[fix] - cw[fix]^2)
+        x
+      }),
+      .SDcols = c(tcols, ccols, dcols)
+    ]
+
+    data[, c(ccols, dcols) := NULL]
+  }
 
   # Equation (8)
   # Calculate variance of estimate
